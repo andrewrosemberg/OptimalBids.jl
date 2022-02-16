@@ -1,6 +1,6 @@
 using OptimalBids
 using Test
 
-@testset "OptimalBids.jl" begin
-    # Write your tests here.
-end
+import OptimalBids: Market, build_market, change_bids!, clear_market!, calculate_profit, profit_for_bid!, profit_curve!
+
+include("core.jl")
