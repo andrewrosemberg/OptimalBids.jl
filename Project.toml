@@ -1,0 +1,13 @@
+name = "OptimalBids"
+uuid = "54ed2464-0158-49e7-9a8e-1c1697a616e3"
+authors = ["Andrew Rosemberg"]
+version = "1.0.0"
+
+[compat]
+julia = "1.7"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
