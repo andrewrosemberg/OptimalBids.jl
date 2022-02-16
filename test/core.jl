@@ -22,7 +22,8 @@
         @test_throws MethodError OptimalBids.change_bids!(MyMarket, new_bids)
 
         function OptimalBids.change_bids!(market::MyMarket, bids::Vector{Float64})
-            return market.bids = bids
+            market.bids = bids
+            return nothing
         end
 
         OptimalBids.change_bids!(market, new_bids)
@@ -33,7 +34,8 @@
 
         function OptimalBids.clear_market!(market::MyMarket)
             market.cleared_volumes = market.bids ./ 2
-            return market.cleared_prices = ones(length(market.bids))
+            market.cleared_prices = ones(length(market.bids))
+            return nothing
         end
 
         OptimalBids.clear_market!(market)
@@ -46,7 +48,7 @@
             return (;
                 cleared_volumes=market.cleared_volumes,
                 clearing_price=market.cleared_prices,
-                profit=sum(market.cleared_volumes .* market.cleared_prices),
+                profit=market.cleared_volumes .* market.cleared_prices,
             )
         end
 
@@ -54,10 +56,10 @@
     end
 
     @testset "profit_for_bid!" begin
-        @test OptimalBids.profit_for_bid!(market, initial_bids) == sum(initial_bids) / 2
+        @test profit_for_bid!(market, initial_bids) == sum(initial_bids) / 2
     end
 
     @testset "profit_curve!" begin
-        @test OptimalBids.profit_curve!(market, [initial_bids .* [i] for i in 1:10]) == [sum(initial_bids) * i / 2 for i in 1:10]
+        @test profit_curve!(market, [initial_bids .* [i] for i in 1:10]) == [sum(initial_bids) * i / 2 for i in 1:10]
     end
 end
