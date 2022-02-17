@@ -9,7 +9,7 @@ using PowerModels
 using JuMP
 
 import ..OptimalBids: Market, build_market, change_bids!, clear_market!, calculate_profit
-import Reexport
+using Reexport: Reexport
 
 export PowerModelsMarket,
     build_market, change_bids!, clear_market!, calculate_profit, add_generator
@@ -34,9 +34,12 @@ function OptimalBids.build_market(
     solver;
     market_formulation=DCPPowerModel,
     opf_builder=PowerModels.build_opf,
-    assert_consistency=true
+    assert_consistency=true,
 )
-    if assert_consistency && any(string(network_data["gen"][i.gen_index]["gen_bus"]) != i.bus_index for i in strategic_generators)
+    if assert_consistency && any(
+        string(network_data["gen"][i.gen_index]["gen_bus"]) != i.bus_index for
+        i in strategic_generators
+    )
         throw(DomainError("gen_indexes & bus_indexes inconsistent"))
     end
     return PowerModelsMarket(
@@ -52,16 +55,19 @@ function OptimalBids.build_market(
     solver;
     market_formulation=DCPPowerModel,
     opf_builder=PowerModels.build_opf,
-    kwards...
+    kwards...,
 )
     return build_market(
         market,
         network_data,
-        [(; gen_index=gen_indexes[i], bus_index=bus_indexes[i]) for i in 1:length(gen_indexes)],
+        [
+            (; gen_index=gen_indexes[i], bus_index=bus_indexes[i]) for
+            i in 1:length(gen_indexes)
+        ],
         solver;
         market_formulation=market_formulation,
         opf_builder=opf_builder,
-        kwards...
+        kwards...,
     )
 end
 
@@ -81,12 +87,13 @@ function OptimalBids.build_market(
         solver;
         market_formulation=market_formulation,
         opf_builder=opf_builder,
-        assert_consistency=false
+        assert_consistency=false,
     )
 end
 
 function OptimalBids.change_bids!(market::PowerModelsMarket, bids::Vector{Float64})
-    length(market.strategic_generators) != length(bids) && throw(BoundsError("Number of generators & bids dont match"))
+    length(market.strategic_generators) != length(bids) &&
+        throw(BoundsError("Number of generators & bids dont match"))
     for (i, generator) in enumerate(market.strategic_generators)
         market.network_data["gen"][generator.gen_index]["pmax"] = bids[i]
     end

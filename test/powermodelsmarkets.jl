@@ -12,54 +12,69 @@
         bus_indexes = collect(keys(network_data["bus"]))
         num_buses = length(bus_indexes)
         num_strategic_buses = ceil(Int, percentage_buses * num_buses)
-        first_index_bus = floor(Int, (num_buses-num_strategic_buses) / 2)
-        bus_indexes = bus_indexes[first_index_bus:first_index_bus+num_strategic_buses-1] # lets grab the middle generators
+        first_index_bus = floor(Int, (num_buses - num_strategic_buses) / 2)
+        bus_indexes = bus_indexes[first_index_bus:(first_index_bus + num_strategic_buses - 1)] # lets grab the middle generators
 
-        # add generators
-        generator_indexes = [add_generator(network_data, parse(Int64, bus_idx)) for bus_idx in bus_indexes]
-        market=nothing
+        # add new strategic generators
+        generator_indexes = [
+            add_generator(network_data, parse(Int, bus_idx)) for bus_idx in bus_indexes
+        ]
+
+        # test PowerModelsMarket functions
+        market = nothing
         @testset "build_market" begin
-            @test_throws MethodError build_market(PowerModelsMarket,
+            @test_throws MethodError build_market(
+                PowerModelsMarket,
                 network_data,
                 collect(1:num_strategic_buses),
                 collect(1:num_strategic_buses),
-                Clp.Optimizer
+                Clp.Optimizer,
             )
-            @test_throws BoundsError build_market(PowerModelsMarket,
+            @test_throws BoundsError build_market(
+                PowerModelsMarket,
                 network_data,
                 generator_indexes,
-                bus_indexes[1:end-1],
-                Clp.Optimizer
+                bus_indexes[1:(end - 1)],
+                Clp.Optimizer,
             )
-            @test_throws DomainError build_market(PowerModelsMarket,
+            @test_throws DomainError build_market(
+                PowerModelsMarket,
                 network_data,
                 generator_indexes,
-                [bus_indexes[1:end-1]; "44"],
-                Clp.Optimizer
+                [bus_indexes[1:(end - 1)]; "44"],
+                Clp.Optimizer,
             )
 
-            sg_aux = build_market(PowerModelsMarket,
+            sg_aux =
+                build_market(
+                    PowerModelsMarket,
+                    network_data,
+                    generator_indexes,
+                    bus_indexes,
+                    Clp.Optimizer,
+                ).strategic_generators
+
+            market = build_market(
+                PowerModelsMarket,
                 network_data,
                 generator_indexes,
                 bus_indexes,
-                Clp.Optimizer
-            ).strategic_generators
-
-            market = build_market(PowerModelsMarket,
-                network_data,
-                generator_indexes,
-                bus_indexes,
-                Clp.Optimizer
+                Clp.Optimizer,
             )
             @test all(market.strategic_generators .== sg_aux)
         end
 
-        initial_bids=collect(0.01:0.01:num_strategic_buses*0.01)
+        initial_bids = collect(0.01:0.01:(num_strategic_buses * 0.01))
         @testset "change_bids!" begin
-            @test_throws BoundsError change_bids!(market, collect(1.0:num_strategic_buses-1))
+            @test_throws BoundsError change_bids!(
+                market, collect(1.0:(num_strategic_buses - 1))
+            )
 
             change_bids!(market, initial_bids)
-            @test [market.network_data["gen"][i.gen_index]["pmax"] for i in market.strategic_generators] == initial_bids
+            @test [
+                market.network_data["gen"][i.gen_index]["pmax"] for
+                i in market.strategic_generators
+            ] == initial_bids
         end
 
         @testset "clear_market!" begin
