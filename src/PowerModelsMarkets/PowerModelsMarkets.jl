@@ -18,6 +18,19 @@ Reexport.@reexport using PowerModels
 
 include("case_modifiers.jl")
 
+"""
+    PowerModelsMarket <: OptimalBids.Market
+
+Energy-Market type that uses PowerModels' OPF to clear the auction.
+
+Arguments:
+ - `network_data::Dict`: [PowerModels data structure](https://lanl-ansi.github.io/PowerModels.jl/stable/network-data/).
+ - `strategic_generators::Vector{NamedTuple{(:gen_index, :bus_index),Tuple{String,String}}}`: Vector of strategic generators' indexes and their bus indexes. 
+ - `result::Union{Dict,Missing}`: Market clearing result.
+ - `market_formulation`: Network formulation used in the PowerModels' auction clearing process (i.e. OPF).
+ - `opf_builder`: PowerModels opf builder.
+ - `solver`: JuMP optimization solver that should be able to solve the OPF created based on the passed `market_formulation`.
+"""
 mutable struct PowerModelsMarket <: OptimalBids.Market
     network_data::Dict
     strategic_generators::Vector{NamedTuple{(:gen_index, :bus_index),Tuple{String,String}}}
@@ -27,6 +40,28 @@ mutable struct PowerModelsMarket <: OptimalBids.Market
     solver
 end
 
+"""
+    OptimalBids.build_market(
+        ::Type{PowerModelsMarket},
+        network_data,
+        strategic_generators,
+        solver;
+        market_formulation=DCPPowerModel,
+        opf_builder=PowerModels.build_opf,
+        assert_consistency=true,
+    )
+
+Creates Energy-Market of type `PowerModelsMarket`.
+
+Arguments:
+ - `network_data::Dict`: [PowerModels data structure](https://lanl-ansi.github.io/PowerModels.jl/stable/network-data/).
+ - `strategic_generators::Vector{NamedTuple{(:gen_index, :bus_index),Tuple{String,String}}}`: Vector of strategic generators' indexes and their bus indexes. 
+ - `result::Union{Dict,Missing}`: Market clearing result.
+ - `market_formulation`: Network formulation used in the PowerModels' auction clearing process (i.e. OPF).
+ - `opf_builder`: PowerModels opf builder.
+ - `solver`: JuMP optimization solver that should be able to solve the OPF created based on the passed `market_formulation`.
+ - `assert_consistency=true`: Boolean to force check if strategic generators indexes (in `strategic_generators`) reference generators located at the specified `bus_index`.
+"""
 function OptimalBids.build_market(
     ::Type{PowerModelsMarket},
     network_data,
@@ -47,6 +82,29 @@ function OptimalBids.build_market(
     )
 end
 
+"""
+    OptimalBids.build_market(
+        market::Type{PowerModelsMarket},
+        network_data::Dict,
+        gen_indexes::AbstractVector{String},
+        bus_indexes::AbstractVector{String},
+        solver;
+        market_formulation=DCPPowerModel,
+        opf_builder=PowerModels.build_opf,
+        kwards...,
+    )
+
+Creates Energy-Market of type `PowerModelsMarket`.
+
+Arguments:
+ - `network_data::Dict`: [PowerModels data structure](https://lanl-ansi.github.io/PowerModels.jl/stable/network-data/).
+ - `gen_indexes::AbstractVector{String}`: Vector of strategic generators' indexes.
+ - `bus_indexes::AbstractVector{String}`: Vector of strategic generators' bus indexes. 
+ - `result::Union{Dict,Missing}`: Market clearing result.
+ - `market_formulation`: Network formulation used in the PowerModels' auction clearing process (i.e. OPF).
+ - `opf_builder`: PowerModels opf builder.
+ - `solver`: JuMP optimization solver that should be able to solve the OPF created based on the passed `market_formulation`.
+"""
 function OptimalBids.build_market(
     market::Type{PowerModelsMarket},
     network_data::Dict,
@@ -71,6 +129,26 @@ function OptimalBids.build_market(
     )
 end
 
+"""
+    OptimalBids.build_market(
+        market::Type{PowerModelsMarket},
+        network_data::Dict,
+        gen_indexes::AbstractVector{String},
+        solver;
+        market_formulation=DCPPowerModel,
+        opf_builder=PowerModels.build_opf,
+    )
+
+Creates Energy-Market of type `PowerModelsMarket`.
+
+Arguments:
+ - `network_data::Dict`: [PowerModels data structure](https://lanl-ansi.github.io/PowerModels.jl/stable/network-data/).
+ - `gen_indexes::AbstractVector{String}`: Vector of strategic generators' indexes.
+ - `result::Union{Dict,Missing}`: Market clearing result.
+ - `market_formulation`: Network formulation used in the PowerModels' auction clearing process (i.e. OPF).
+ - `opf_builder`: PowerModels opf builder.
+ - `solver`: JuMP optimization solver that should be able to solve the OPF created based on the passed `market_formulation`.
+"""
 function OptimalBids.build_market(
     market::Type{PowerModelsMarket},
     network_data::Dict,
@@ -91,15 +169,20 @@ function OptimalBids.build_market(
     )
 end
 
-function OptimalBids.change_bids!(market::PowerModelsMarket, bids::Vector{Float64})
-    length(market.strategic_generators) != length(bids) &&
-        throw(BoundsError("Number of generators & bids dont match"))
+function OptimalBids.change_bids!(market::PowerModelsMarket, new_bids::Vector{Float64})
+    length(market.strategic_generators) != length(new_bids) &&
+        throw(BoundsError("Number of generators & new_bids dont match"))
     for (i, generator) in enumerate(market.strategic_generators)
-        market.network_data["gen"][generator.gen_index]["pmax"] = bids[i]
+        market.network_data["gen"][generator.gen_index]["pmax"] = new_bids[i]
     end
     return nothing
 end
 
+"""
+    OptimalBids.clear_market!(market::PowerModelsMarket)
+
+Clears market and stores result's dictionary in `result`.
+"""
 function OptimalBids.clear_market!(market::PowerModelsMarket)
     pm = PowerModels.instantiate_model(
         market.network_data,
