@@ -4,6 +4,9 @@ using OptimalBids.PowerModelsMarkets
 using OptimalBids.PowerModelsMarkets:
     build_market, change_bids!, clear_market!, calculate_profit
 using Test
+using Nonconvex
+using NonconvexIpopt # Nonconvex.@load Ipopt
+using NonconvexBayesian # Nonconvex.@load BayesOpt
 
 import OptimalBids: Market, build_market, change_bids!, clear_market!, calculate_profit
 

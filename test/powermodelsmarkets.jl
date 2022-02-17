@@ -91,11 +91,42 @@
             @test profit_for_bid!(market, zeros(num_strategic_buses)) == 0.0
         end
 
+        min_total_volume = 0.0
+        max_total_volume = 100.0
+        best_profit = 0.0
         @testset "profit_curve!" begin
-            bid_range = [initial_bids .* [i] for i in 0.0:10]
+            bid_range = [initial_bids .* [i] for i in min_total_volume:max_total_volume]
             p_curve = profit_curve!(market, bid_range)
+            best_profit = maximum(p_curve)
             @test length(p_curve) == length(bid_range)
-            @test maximum(p_curve) > minimum(p_curve)
+            @test best_profit > minimum(p_curve)
+        end
+
+        @testset "Profit Maximization using Nonconvex" begin
+            function profit_function(total_volume)
+                initial_bids = collect(0.01:0.01:(num_strategic_buses * 0.01))
+                return - profit_for_bid!(market, initial_bids .* total_volume[1])
+            end
+
+            # Max Number of Iterations for the solution method
+            maxiter = 10
+
+            model = Model()
+            set_objective!(model, profit_function, flags = [:expensive])
+            addvar!(model, [min_total_volume], [max_total_volume])
+            add_ineq_constraint!(model, x -> -1) # Errors when no inequality is added! 
+
+            alg = BayesOptAlg(IpoptAlg())
+            options = BayesOptOptions(
+                sub_options = IpoptOptions(),
+                maxiter = maxiter, ftol = 1e-4, ctol = 1e-5,
+            )
+            r = optimize(model, alg, [min_total_volume], options = options)
+
+            @test r.minimizer[1] >= min_total_volume && r.minimizer[1] <= max_total_volume
+            # Assumption that the range evaluation found something at most 1.5x lower than the true maximum
+            @test -r.minimum >= 0.0 && -r.minimum <= best_profit * 1.5
+            @test r.niters <= maxiter
         end
     end
 end
