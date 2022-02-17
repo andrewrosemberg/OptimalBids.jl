@@ -1,8 +1,6 @@
 module OptimalBids
 
-export Market
-export build_market,
-    change_bids!, clear_market!, calculate_profit, profit_for_bid!, profit_curve!
+export profit_for_bid!, profit_curve!
 
 """
     Market
@@ -19,11 +17,11 @@ Builds market of type Market using provided parameters (`params`).
 function build_market(::Type{Market}, params...) end
 
 """
-    change_bids!(market::Market, new_bids::Vector{Any})
+    change_bids!(market::Market, new_bids::Vector)
 
 Changes strategic agent's bids in the market to `new_bids`.
 """
-function change_bids!(market::Market, new_bids::Vector{<:Any}) end
+function change_bids!(market::Market, new_bids::Vector) end
 
 """
     clear_market!(market::Market)
@@ -33,7 +31,7 @@ Clears the market.
 function clear_market!(market::Market) end
 
 """
-    calculate_profit(market::Market) -> NamedTuple{(:cleared_volumes, :clearing_price, :profit), Tuple{Vector{Int64}, Vector{Int64}, Vector{Int64}}}
+    calculate_profit(market::Market) -> NamedTuple{(:cleared_volumes, :clearing_prices, :profit), Tuple{Vector{Int64}, Vector{Int64}, Vector{Int64}}}
 
 Retrieves strategic agent's cleared volumes and prices from the market and calculates per bid profit.
 """
@@ -60,4 +58,8 @@ function profit_curve!(market::Market, range_new_bids::Vector{<:AbstractVector})
         return profit_for_bid!(market, bids)
     end
 end
+
+# Include SubModules
+include("PowerModelsMarkets/PowerModelsMarkets.jl")
+
 end

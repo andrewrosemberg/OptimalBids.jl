@@ -2,7 +2,7 @@
     mutable struct MyMarket <: OptimalBids.Market
         bids::Vector{Float64}
         cleared_volumes::Union{Vector{Float64},Missing}
-        cleared_prices::Union{Vector{Float64},Missing}
+        clearing_prices::Union{Vector{Float64},Missing}
     end
 
     initial_bids = collect(1.0:10.0)
@@ -34,7 +34,7 @@
 
         function OptimalBids.clear_market!(market::MyMarket)
             market.cleared_volumes = market.bids ./ 2
-            market.cleared_prices = ones(length(market.bids))
+            market.clearing_prices = ones(length(market.bids))
             return nothing
         end
 
@@ -47,8 +47,8 @@
         function OptimalBids.calculate_profit(market::MyMarket)
             return (;
                 cleared_volumes=market.cleared_volumes,
-                clearing_price=market.cleared_prices,
-                profit=market.cleared_volumes .* market.cleared_prices,
+                clearing_prices=market.clearing_prices,
+                profit=market.cleared_volumes .* market.clearing_prices,
             )
         end
 
