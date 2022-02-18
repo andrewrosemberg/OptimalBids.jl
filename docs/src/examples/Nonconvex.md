@@ -1,7 +1,7 @@
 ## Profit Maximization Example: using Nonconvex.jl
 This a example on how to use [Nonconvex.jl](https://github.com/JuliaNonconvex/Nonconvex.jl) to maximize the profit of a company operating in a defined market (through the `OptimalBids` API).
 
-For this example, we will a market of type `PowerModelsMarkets`. 
+For this example, we will use a market of type `PowerModelsMarkets`. 
 
 ```@example Nonconvex
 using OptimalBids
