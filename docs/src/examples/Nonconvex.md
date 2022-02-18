@@ -103,7 +103,7 @@ add_ineq_constraint!(model, x -> -1) # errors when no inequality is added!
 # Solution Method: Bayesian Optimization
 alg = BayesOptAlg(IpoptAlg())
 options = BayesOptOptions(
-    sub_options = IpoptOptions(),
+    sub_options = IpoptOptions(max_iter = maxiter),
     maxiter = maxiter, ftol = 1e-4, ctol = 1e-5,
 )
 
@@ -112,11 +112,15 @@ r = optimize(model, alg, [min_total_volume], options = options)
 
 best_solution = r.minimizer
 best_profit = -r.minimum
-r.niters # number of iterations
+r.niters # number of iterations of the 
 
 scatter!(plt_range, [best_solution; r.sub_result.minimizer], [best_profit; -r.sub_result.minimum],
-    label="BayesOpt - iterations:$(r.niters)",
+    label="BayesOpt Offer - OPF Calls:$(r.sub_result.fcalls)",
     size=(1000, 1000)
+)
+
+plot!(range_mul_factor, -getproperty.(r.surrogates[1].(range_mul_factor), :lo),
+    label="BayesOpt - Surrogate Function",
 )
 ```
 ![](https://github.com/andrewrosemberg/PortfolioOpt/blob/master/docs/src/assets/bayesopt_profit.png?raw=true)
