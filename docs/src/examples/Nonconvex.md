@@ -98,7 +98,7 @@ maxiter = 10
 model = Model()
 set_objective!(model, profit_function, flags = [:expensive])
 addvar!(model, [min_total_volume], [max_total_volume])
-add_ineq_constraint!(model, x -> -1) # Errors when no inequality is added! 
+add_ineq_constraint!(model, x -> -1) # errors when no inequality is added! 
 
 # Solution Method: Bayesian Optimization
 alg = BayesOptAlg(IpoptAlg())
@@ -119,3 +119,4 @@ scatter!(plt_range, [best_solution; r.sub_result.minimizer], [best_profit; -r.su
     size=(1000, 1000)
 )
 ```
+![](https://github.com/andrewrosemberg/PortfolioOpt/blob/master/docs/src/assets/bayesopt_profit.png?raw=true)
