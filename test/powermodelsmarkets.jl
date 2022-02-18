@@ -58,7 +58,6 @@
                 PowerModelsMarket,
                 network_data,
                 generator_indexes,
-                bus_indexes,
                 Clp.Optimizer,
             )
             @test all(market.strategic_generators .== sg_aux)

@@ -1,8 +1,6 @@
 using Clp
 using OptimalBids
 using OptimalBids.PowerModelsMarkets
-using OptimalBids.PowerModelsMarkets:
-    build_market, change_bids!, clear_market!, calculate_profit
 using Test
 using Nonconvex
 using NonconvexIpopt # Nonconvex.@load Ipopt
