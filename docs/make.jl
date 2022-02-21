@@ -15,7 +15,7 @@ makedocs(;
     ),
     pages=["Home" => "index.md"],
     checkdocs=:exports,
-    strict=true,
+    strict=false,
 )
 
 deploydocs(; repo="github.com/andrewrosemberg/OptimalBids.jl", devbranch="main")
