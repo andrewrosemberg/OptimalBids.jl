@@ -20,7 +20,9 @@ CASE DEFINITION
 
 # Read market data from IEEE 118 bus case
 case_name = "case118.m"
-network_data = PowerModels.parse_file(case_name)
+DATA_DIR = joinpath(dirname(dirname(dirname(@__DIR__))), "test/data")
+case_file_path = joinpath(DATA_DIR, case_name)
+network_data = PowerModels.parse_file(case_file_path)
 
 # Let's make the case a bit more interesting, by adding some randomness to existing generators costs and available load.
 using Random
