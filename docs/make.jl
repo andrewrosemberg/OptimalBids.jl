@@ -13,14 +13,9 @@ makedocs(;
         canonical="https://andrewrosemberg.github.io/OptimalBids.jl",
         assets=String[],
     ),
-    pages=[
-        "Home" => "index.md",
-    ],
+    pages=["Home" => "index.md"],
     checkdocs=:exports,
-    strict=true,
+    strict=false,
 )
 
-deploydocs(;
-    repo="github.com/andrewrosemberg/OptimalBids.jl",
-    devbranch="main",
-)
+deploydocs(; repo="github.com/andrewrosemberg/OptimalBids.jl", devbranch="main")
