@@ -8,7 +8,7 @@
 Modules = [OptimalBids]
 ```
 
-## TestUtils
+## PowerModelsMarkets
 
 ```@autodocs
 Modules = [OptimalBids.PowerModelsMarkets]
