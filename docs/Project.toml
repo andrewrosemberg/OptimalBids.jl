@@ -2,4 +2,6 @@
 Clp = "e2554f3b-3117-50c0-817c-e040a3ddf72d"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 Nonconvex = "01bcebdf-4d21-426d-b5c4-6132c1619978"
+NonconvexBayesian = "fb352abc-de7b-48de-9ebd-665b54b5d9b3"
+NonconvexIpopt = "bf347577-a06d-49ad-a669-8c0e005493b8"
 OptimalBids = "54ed2464-0158-49e7-9a8e-1c1697a616e3"
