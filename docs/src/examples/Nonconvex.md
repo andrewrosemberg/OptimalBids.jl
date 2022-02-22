@@ -39,7 +39,7 @@ end
 # Choose a percentage of the total number of buses to install the new generators:
 percentage_buses = 0.09
 
-# We need the keys PowerModels uses to refernece the appropriate buses in it's network data dictionary.
+# We need the keys PowerModels uses to reference the appropriate buses in it's network data dictionary.
 # First, find out all available keys:
 bus_indexes = collect(keys(network_data["bus"]))
 # Then, calculate number of buses that consitute the chose percent (`percentage_buses`):
@@ -47,7 +47,7 @@ num_buses = length(bus_indexes)
 num_strategic_buses = ceil(Int, percentage_buses * num_buses)
 # To avoid any biases let's grab some generators in the middle:
 bus_indexes = bus_indexes[21:(21 + num_strategic_buses - 1)]
-# Finally, add new generators to the network grid data and collect their refernece keys.
+# Finally, add new generators to the network grid data and collect their reference keys.
 generator_indexes = [
     add_generator(network_data, parse(Int, bus_idx)) for bus_idx in bus_indexes
 ]

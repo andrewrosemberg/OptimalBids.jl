@@ -1,10 +1,10 @@
 name: CI
-# Run on master, tags, or any pull request
+# Run on main, tags, or any pull request
 on:
   schedule:
     - cron: '0 2 * * *'  # Daily at 2 AM UTC (8 PM CST)
   push:
-    branches: [master]
+    branches: [main]
     tags: ["*"]
   pull_request:
 jobs:
@@ -56,21 +56,21 @@ jobs:
         with:
           file: lcov.info
 
-  slack:
-    name: Notify Slack Failure
-    needs: test
-    runs-on: ubuntu-latest
-    if: always() && github.event_name == 'schedule'
-    steps:
-      - uses: technote-space/workflow-conclusion-action@v2
-      - uses: voxmedia/github-action-slack-notify-build@v1
-        if: env.WORKFLOW_CONCLUSION == 'failure'
-        with:
-          channel: nightly-dev
-          status: FAILED
-          color: danger
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.DEV_SLACK_BOT_TOKEN }}
+  # slack:
+  #   name: Notify Slack Failure
+  #   needs: test
+  #   runs-on: ubuntu-latest
+  #   if: always() && github.event_name == 'schedule'
+  #   steps:
+  #     - uses: technote-space/workflow-conclusion-action@v2
+  #     - uses: voxmedia/github-action-slack-notify-build@v1
+  #       if: env.WORKFLOW_CONCLUSION == 'failure'
+  #       with:
+  #         channel: nightly-dev
+  #         status: FAILED
+  #         color: danger
+  #       env:
+  #         SLACK_BOT_TOKEN: ${{ secrets.DEV_SLACK_BOT_TOKEN }}
 
   docs:
     name: Documentation
