@@ -15,6 +15,7 @@ makedocs(;
     ),
     pages=["Home" => "index.md",
         "Examples" => "examples/Nonconvex.md",
+        "API" => "api.md",
     ],
     checkdocs=:exports,
     strict=false,
