@@ -13,7 +13,9 @@ makedocs(;
         canonical="https://andrewrosemberg.github.io/OptimalBids.jl",
         assets=String[],
     ),
-    pages=["Home" => "index.md"],
+    pages=["Home" => "index.md",
+        "Examples" => "examples/Nonconvex.md",
+    ],
     checkdocs=:exports,
     strict=false,
 )
