@@ -16,5 +16,20 @@ CurrentModule = OptimalBids
 
 Documentation for [OptimalBids](https://github.com/andrewrosemberg/OptimalBids.jl).
 
+Simple Package to help evaluate bids in markets/auctions.
+
+## Instalation
+
+```julia
+] add https://github.com/andrewrosemberg/OptimalBids.jl
+```
+
+## Overview
+
+The framework used is based around the dispatch of the following functions for specified markets (subtypes of the core abstract type `Market`):
+`build_market`, `change_bids!`, `clear_market!`, `calculate_profit` (see docstrings for more info - e.g. `@doc change_bids!`). I.e. these are the functions that need to be implemented for each market type.
+
+In addition, the functions `profit_for_bid!`, `profit_curve!` are implemented in a reasonably generic way, allowing users to dispatch them with any new market. (see docstrings for more info - e.g. `@doc profit_for_bid!`).
+
 ```@index
 ```
