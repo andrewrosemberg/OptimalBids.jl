@@ -1,7 +1,7 @@
 name = "OptimalBids"
 uuid = "54ed2464-0158-49e7-9a8e-1c1697a616e3"
 authors = ["Andrew Rosemberg"]
-version = "1.1.0"
+version = "1.2.0"
 
 [deps]
 JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
