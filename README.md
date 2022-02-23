@@ -109,4 +109,5 @@ plot(collect(range_mul_factor), p_curve,
     legend=:outertopright,
 )
 ```
+
 ![](https://github.com/andrewrosemberg/PortfolioOpt/blob/master/docs/src/assets/profit_curve.png?raw=true)
