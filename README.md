@@ -110,4 +110,4 @@ plot(collect(range_mul_factor), p_curve,
 )
 ```
 
-![](https://github.com/andrewrosemberg/PortfolioOpt/blob/master/docs/src/assets/profit_curve.png?raw=true)
+![](https://raw.githubusercontent.com/andrewrosemberg/OptimalBids.jl/main/docs/src/assets/profit_curve.png)
