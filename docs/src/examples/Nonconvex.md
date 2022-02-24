@@ -132,7 +132,8 @@ plot!(plt_surrogate, range_mul_factor, -getproperty.(r_bayes.surrogates[1].(rang
 
 ## NLOpt
 using NonconvexNLopt
-include(joinpath(dirname(@__FILE__), "fix_nlopt.jl") # Issue: 
+
+include(joinpath(dirname(dirname(dirname(@__DIR__))), "test/fix_nlopt.jl")) # Issue: https://github.com/andrewrosemberg/OptimalBids.jl/issues/8
 
 maxeval = 10
 
@@ -161,4 +162,5 @@ scatter!(plt_range, [best_solution], [best_profit],
 plot(plt_range, plt_surrogate, size=(1400, 1000))
 
 ```
+
 ![](https://github.com/andrewrosemberg/PortfolioOpt/blob/master/docs/src/assets/bayesopt_profit.png?raw=true)
