@@ -133,7 +133,16 @@ plot!(plt_surrogate, range_mul_factor, -getproperty.(r_bayes.surrogates[1].(rang
 ## NLOpt
 using NonconvexNLopt
 
-include(joinpath(dirname(dirname(dirname(@__DIR__))), "test/fix_nlopt.jl")) # Issue: https://github.com/andrewrosemberg/OptimalBids.jl/issues/8
+# Since we are still focusing in derivative free options, let's not allow ChainRulesCore
+# to calculate the derivative of our profit function
+NonconvexCore.ChainRulesCore.@non_differentiable profit_function(args...)
+# or alternatively:
+#=
+import NonconvexIpopt.Zygote: gradient
+function NonconvexIpopt.Zygote.gradient(f, args...)
+    [nothing]
+end
+=#
 
 maxeval = 10
 
@@ -161,17 +170,6 @@ scatter!(plt_range, [best_solution], [best_profit],
 
 ## NonconvexMultistart
 using NonconvexMultistart
-import NonconvexIpopt.Zygote: gradient
-
-# Since we are still focusing in derivative free options, let's not allow ChainRulesCore
-# to calculate the derivative of our profit function
-NonconvexCore.ChainRulesCore.@non_differentiable profit_function(args...)
-# or alternatively:
-#=
-function NonconvexIpopt.Zygote.gradient(f, args...)
-    [nothing]
-end
-=#
 
 # Build Nonconvex optimization model:
 model = Model()
