@@ -663,6 +663,12 @@ git-tree-sha1 = "e8c9653877adcf8f3e7382985e535bb37b083598"
 uuid = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
 version = "0.10.9"
 
+[[deps.MathProgBase]]
+deps = ["LinearAlgebra", "SparseArrays"]
+git-tree-sha1 = "9abbe463a1e9fc507f12a69e7f29346c2cdc472c"
+uuid = "fdba3010-5040-5b88-9595-932c9decdf73"
+version = "0.7.8"
+
 [[deps.MbedTLS]]
 deps = ["Dates", "MbedTLS_jll", "Random", "Sockets"]
 git-tree-sha1 = "1c38e51c3d08ef2278062ebceade0e46cefc96fe"
@@ -708,6 +714,18 @@ git-tree-sha1 = "50310f934e55e5ca3912fb941dec199b49ca9b68"
 uuid = "d41bc354-129a-5804-8e4c-c37616107c6c"
 version = "7.8.2"
 
+[[deps.NLopt]]
+deps = ["MathOptInterface", "MathProgBase", "NLopt_jll"]
+git-tree-sha1 = "f115030b9325ca09ef1619ba0617b2a64101ce84"
+uuid = "76087f3c-5699-56af-9a33-bf431cd00edd"
+version = "0.6.4"
+
+[[deps.NLopt_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
+git-tree-sha1 = "9b1f15a08f9d00cdb2761dcfa6f453f5d0d6f973"
+uuid = "079eb43e-fd8e-5478-9966-2cf3e3edb778"
+version = "2.7.1+0"
+
 [[deps.NLsolve]]
 deps = ["Distances", "LineSearches", "LinearAlgebra", "NLSolversBase", "Printf", "Reexport"]
 git-tree-sha1 = "019f12e9a1a7880459d0173c182e6a99365d7ac1"
@@ -751,6 +769,12 @@ git-tree-sha1 = "0424daa75eb116cce7fd83c76c0e80cb259f86c1"
 uuid = "bf347577-a06d-49ad-a669-8c0e005493b8"
 version = "0.1.3"
 
+[[deps.NonconvexNLopt]]
+deps = ["LinearAlgebra", "NLopt", "NonconvexCore", "Parameters", "Reexport", "SparseArrays", "Zygote"]
+git-tree-sha1 = "8e738670b00d857a50b0052b2f8870e6da305277"
+uuid = "b43a31b8-ff9b-442d-8e31-c163daa8ab75"
+version = "0.1.3"
+
 [[deps.Ogg_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "887579a3eb005446d514ab7aeac5d1d027658b8f"
@@ -787,7 +811,7 @@ version = "0.5.5+0"
 deps = ["JuMP", "PowerModels", "Reexport"]
 path = ".."
 uuid = "54ed2464-0158-49e7-9a8e-1c1697a616e3"
-version = "1.0.0"
+version = "1.2.0"
 
 [[deps.Opus_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]

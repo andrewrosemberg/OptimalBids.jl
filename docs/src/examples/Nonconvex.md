@@ -88,12 +88,15 @@ plt_range = plot(collect(range_mul_factor), p_curve,
 Nonconvex API
 =#
 
+## BayesOpt
+
 # Nonconvex needs a minimization objective function that only receives the decision vector.
 function profit_function(total_volume)
     return - profit_for_bid!(market, offer_weights .* total_volume[1])
 end
 
 # Max Number of Iterations for the solution method (proxy to a time limit at bidding time).
+# ps.: Currently, no option for limiting fcalls.
 maxiter = 10
 
 # Build Nonconvex optimization model:
@@ -110,19 +113,52 @@ options = BayesOptOptions(
 )
 
 # Optimize model:
+r_bayes = optimize(model, alg, [min_total_volume], options = options)
+
+best_solution = r_bayes.minimizer
+best_profit = -r_bayes.minimum
+r_bayes.niters # number of iterations of the 
+
+scatter!(plt_range, [best_solution; r_bayes.sub_result.minimizer], [best_profit; -r_bayes.sub_result.minimum],
+    label="BayesOpt Offer - OPF Calls:$(r_bayes.sub_result.fcalls)",
+    size=(1000, 1000)
+)
+
+plt_surrogate = deepcopy(plt_range)
+
+plot!(plt_surrogate, range_mul_factor, -getproperty.(r_bayes.surrogates[1].(range_mul_factor), :lo),
+    label="BayesOpt - Surrogate Function",
+)
+
+## NLOpt
+using NonconvexNLopt
+include(joinpath(dirname(@__FILE__), "fix_nlopt.jl") # Issue: 
+
+maxeval = 10
+
+# Build Nonconvex optimization model:
+model = Model()
+set_objective!(model, profit_function)
+addvar!(model, [min_total_volume], [max_total_volume])
+
+# Solution Method: Bayesian Optimization
+method = :LN_BOBYQA
+alg = NLoptAlg(:LN_BOBYQA)
+options = NLoptOptions(maxeval=maxeval)
+
+# Optimize model: Sequential Least-Squares Quadratic Programming
 r = optimize(model, alg, [min_total_volume], options = options)
 
 best_solution = r.minimizer
 best_profit = -r.minimum
-r.niters # number of iterations of the 
+r.fcalls # number of function calls
 
-scatter!(plt_range, [best_solution; r.sub_result.minimizer], [best_profit; -r.sub_result.minimum],
-    label="BayesOpt Offer - OPF Calls:$(r.sub_result.fcalls)",
+scatter!(plt_range, [best_solution], [best_profit],
+    label="NLOpt-$(method) Offer - OPF Calls:$(r.fcalls)",
     size=(1000, 1000)
 )
 
-plot!(range_mul_factor, -getproperty.(r.surrogates[1].(range_mul_factor), :lo),
-    label="BayesOpt - Surrogate Function",
-)
+plot(plt_range, plt_surrogate, size=(1400, 1000))
+
 ```
 ![](https://github.com/andrewrosemberg/PortfolioOpt/blob/master/docs/src/assets/bayesopt_profit.png?raw=true)
