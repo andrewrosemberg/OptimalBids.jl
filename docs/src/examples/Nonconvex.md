@@ -142,12 +142,12 @@ model = Model()
 set_objective!(model, profit_function)
 addvar!(model, [min_total_volume], [max_total_volume])
 
-# Solution Method: Bayesian Optimization
+# Solution Method: Sequential Least-Squares Quadratic Programming
 method = :LN_BOBYQA
 alg = NLoptAlg(:LN_BOBYQA)
 options = NLoptOptions(maxeval=maxeval)
 
-# Optimize model: Sequential Least-Squares Quadratic Programming
+# Optimize model
 r = optimize(model, alg, [min_total_volume], options = options)
 
 best_solution = r.minimizer
@@ -156,6 +156,46 @@ r.fcalls # number of function calls
 
 scatter!(plt_range, [best_solution], [best_profit],
     label="NLOpt-$(method) Offer - OPF Calls:$(r.fcalls)",
+    size=(1000, 1000)
+)
+
+## NonconvexMultistart
+using NonconvexMultistart
+import NonconvexIpopt.Zygote: gradient
+
+# Since we are still focusing in derivative free options, let's not allow ChainRulesCore
+# to calculate the derivative of our profit function
+NonconvexCore.ChainRulesCore.@non_differentiable profit_function(args...)
+# or alternatively:
+#=
+function NonconvexIpopt.Zygote.gradient(f, args...)
+    [nothing]
+end
+=#
+
+# Build Nonconvex optimization model:
+model = Model()
+set_objective!(model, profit_function)
+addvar!(model, [min_total_volume], [max_total_volume])
+
+# Solution Method: Hyperopt
+maxiter = 4
+method = :Hyperopt
+alg = HyperoptAlg(IpoptAlg())
+options = HyperoptOptions(
+    sub_options = IpoptOptions(max_iter = maxiter), sampler = GPSampler(),
+    iters = maxiter
+)
+
+# Optimize model
+r_hyp = optimize(model, alg, [min_total_volume], options = options)
+
+best_solution = r_hyp.minimizer
+best_profit = -r_hyp.minimum
+fcalls = sum(i.fcalls for i in r_hyp.results) # number of function calls
+
+scatter!(plt_range, best_solution, [best_profit],
+    label="$(method) Offer - OPF Calls:$(fcalls)",
     size=(1000, 1000)
 )
 
