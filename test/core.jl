@@ -19,7 +19,7 @@
 
     @testset "change_bids!" begin
         new_bids = collect(5.0:15.0)
-        @test_throws MethodError OptimalBids.change_bids!(MyMarket, new_bids)
+        @test_throws MethodError OptimalBids.change_bids!(market, new_bids)
 
         function OptimalBids.change_bids!(market::MyMarket, bids::Vector{Float64})
             market.bids = bids
@@ -30,7 +30,7 @@
     end
 
     @testset "clear_market!" begin
-        @test_throws MethodError OptimalBids.clear_market!(MyMarket)
+        @test_throws MethodError OptimalBids.clear_market!(market)
 
         function OptimalBids.clear_market!(market::MyMarket)
             market.cleared_volumes = market.bids ./ 2
@@ -42,7 +42,7 @@
     end
 
     @testset "calculate_profit" begin
-        @test_throws MethodError OptimalBids.calculate_profit(MyMarket)
+        @test_throws MethodError OptimalBids.calculate_profit(market)
 
         function OptimalBids.calculate_profit(market::MyMarket)
             return (;
