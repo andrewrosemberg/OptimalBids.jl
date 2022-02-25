@@ -14,28 +14,36 @@ abstract type Market end
 
 Builds market of type Market using provided parameters (`params`).
 """
-function build_market(::Type{Market}, params...) end
+function build_market(typ::Type{<:Market}, params...) 
+    throw(MethodError(build_market, typ))
+end
 
 """
     change_bids!(market::Market, new_bids::Vector)
 
 Changes strategic agent's bids in the market to `new_bids`.
 """
-function change_bids!(market::Market, new_bids::Vector) end
+function change_bids!(market::M, ::Vector) where {M<:Market}
+    throw(MethodError(change_bids!, typeof(market)))
+end
 
 """
     clear_market!(market::Market)
 
 Clears the market.
 """
-function clear_market!(market::Market) end
+function clear_market!(market::M) where {M<:Market}
+    throw(MethodError(clear_market!, typeof(market)))
+end
 
 """
     calculate_profit(market::Market) -> NamedTuple{(:cleared_volumes, :clearing_prices, :profit), Tuple{Vector{Int}, Vector{Int}, Vector{Int}}}
 
 Retrieves strategic agent's cleared volumes and prices from the market and calculates per bid profit.
 """
-function calculate_profit(market::Market) end
+function calculate_profit(market::M) where {M<:Market}
+    throw(MethodError(calculate_profit, typeof(market)))
+end
 
 """
     profit_for_bid!(market::Market, new_bids::Vector{Any}) -> Float64
