@@ -1,7 +1,12 @@
+# Examples
 ## Profit Maximization Example: using Nonconvex.jl
 This a example on how to use [Nonconvex.jl](https://github.com/JuliaNonconvex/Nonconvex.jl) to maximize the profit of a company operating in a defined market (through the `OptimalBids` API).
 
-For this example, we will use a market of type `PowerModelsMarkets`. 
+ - For this example, we will use a market of type `PowerModelsMarkets` which represents an energy spot market.
+ - Case instance is IEEE 118 Bus Case
+ - To ilustrate a situation where the company defines the distribution of volume across it's assets in a predefined way (and reduce the decision dimentionality), the only controlable variable to maximize the company profit is a multiplicative factor of all offers.  
+
+### Include Needed Packages
 
 ```@example Nonconvex
 using OptimalBids
@@ -14,9 +19,11 @@ using NonconvexBayesian # Nonconvex.@load BayesOpt
 
 using Plots # For some evaluation plots at the end
 
-#=
-CASE DEFINITION
-=#
+```
+
+### Case Definition
+
+```@example Nonconvex
 
 # Read market data from IEEE 118 bus case
 case_name = "case118.m"
@@ -52,9 +59,11 @@ generator_indexes = [
     add_generator(network_data, parse(Int, bus_idx)) for bus_idx in bus_indexes
 ]
 
-#=
-OptimalBids API
-=#
+```
+
+### OptimalBids API
+
+```@example Nonconvex
 
 # Define market
 market = build_market(
@@ -64,7 +73,7 @@ market = build_market(
     Clp.Optimizer,
 )
 
-# Relative distribution of offers are sometimes predefined and cannot be changed bidding time.
+# Relative distribution of offers are sometimes predefined and cannot be changed at bidding time.
 offer_weights = rand(num_strategic_buses)
 offer_weights = offer_weights/ sum(offer_weights)
 
@@ -77,23 +86,31 @@ p_curve = profit_curve!(market, bid_range)
 
 # Let's plot and see how the range profit evaluatiuon went:
 plt_range = plot(collect(range_mul_factor), p_curve,
-    title="Case $case_name",
-    label="Range Evaluation - Random Offers",
+    label="Range Evaluation",
     ylabel="Profit (\$)",
     xlabel="Multiplicative Factor",
     legend=:outertopright,
-)
+);
+plt_comp = deepcopy(plt_range);
+```
 
-#=
-Nonconvex API
-=#
+### Nonconvex API
+
+```@example Nonconvex
 
 # Nonconvex needs a minimization objective function that only receives the decision vector.
 function profit_function(total_volume)
     return - profit_for_bid!(market, offer_weights .* total_volume[1])
 end
 
+```
+
+### Nonconvex: BayesOpt
+
+```@example Nonconvex
+
 # Max Number of Iterations for the solution method (proxy to a time limit at bidding time).
+# ps.: Currently, no option for limiting fcalls.
 maxiter = 10
 
 # Build Nonconvex optimization model:
@@ -110,19 +127,110 @@ options = BayesOptOptions(
 )
 
 # Optimize model:
+r_bayes = optimize(model, alg, [min_total_volume], options = options)
+
+best_solution = r_bayes.minimizer
+best_profit = -r_bayes.minimum
+r_bayes.niters # number of iterations of the 
+
+scatter!(plt_comp, [best_solution; r_bayes.sub_result.minimizer], [best_profit; -r_bayes.sub_result.minimum],
+    label="BayesOpt - OPF Calls:$(r_bayes.sub_result.fcalls)",
+)
+
+plt_surrogate = deepcopy(plt_range)
+
+plot!(plt_surrogate, range_mul_factor, -getproperty.(r_bayes.surrogates[1].(range_mul_factor), :lo),
+    title="BayesOpt Analysis",
+    label="Surrogate Function",
+)
+```
+
+### Nonconvex: NLopt
+
+```@example Nonconvex
+
+using NonconvexNLopt
+
+# Since we are still focusing in derivative free options, let's not allow ChainRulesCore
+# to calculate the derivative of our profit function
+NonconvexCore.ChainRulesCore.@non_differentiable profit_function(args...)
+# or alternatively:
+#=
+import NonconvexIpopt.Zygote: gradient
+function NonconvexIpopt.Zygote.gradient(f, args...)
+    [nothing]
+end
+=#
+
+maxeval = 10
+
+# Build Nonconvex optimization model:
+model = Model()
+set_objective!(model, profit_function)
+addvar!(model, [min_total_volume], [max_total_volume])
+
+# Solution Method: Sequential Least-Squares Quadratic Programming
+method = :LN_BOBYQA
+alg = NLoptAlg(:LN_BOBYQA)
+options = NLoptOptions(maxeval=maxeval)
+
+# Optimize model
 r = optimize(model, alg, [min_total_volume], options = options)
 
 best_solution = r.minimizer
 best_profit = -r.minimum
-r.niters # number of iterations of the 
 
-scatter!(plt_range, [best_solution; r.sub_result.minimizer], [best_profit; -r.sub_result.minimum],
-    label="BayesOpt Offer - OPF Calls:$(r.sub_result.fcalls)",
-    size=(1000, 1000)
+scatter!(plt_comp, [best_solution], [best_profit],
+    label="NLOpt-$(method) - OPF Calls:$(r.fcalls)",
+);
+
+println("OPF Evaluations: ", r.fcalls)
+```
+
+### Nonconvex: NonconvexMultistart
+
+```@example Nonconvex
+
+using NonconvexMultistart
+
+# Build Nonconvex optimization model:
+model = Model()
+set_objective!(model, profit_function)
+addvar!(model, [min_total_volume], [max_total_volume])
+
+# Solution Method: Hyperopt
+maxiter = 4
+method = :Hyperopt
+alg = HyperoptAlg(IpoptAlg())
+options = HyperoptOptions(
+    sub_options = IpoptOptions(max_iter = maxiter), sampler = GPSampler(),
+    iters = maxiter
 )
 
-plot!(range_mul_factor, -getproperty.(r.surrogates[1].(range_mul_factor), :lo),
-    label="BayesOpt - Surrogate Function",
+# Optimize model
+r_hyp = optimize(model, alg, [min_total_volume], options = options)
+
+best_solution = r_hyp.minimizer
+best_profit = -r_hyp.minimum
+fcalls = length(r_hyp.results) # number of function calls
+
+scatter!(plt_comp, best_solution, [best_profit],
+    label="$(method) Offer - OPF Calls:$(fcalls)",
+);
+
+plt_visited = deepcopy(plt_range)
+
+scatter!(plt_visited, [i.minimizer[1] for i in r_hyp.results], [- i.minimum for i in r_hyp.results],
+    label="$(method) Offer - OPF Calls:$(fcalls)",
+    title="Hyperopt Visited Offers",
 )
 ```
-![](https://github.com/andrewrosemberg/PortfolioOpt/blob/master/docs/src/assets/bayesopt_profit.png?raw=true)
+
+### Nonconvex: Profit Comparison NLP Strategies
+
+```@example Nonconvex
+
+plot(plt_comp, margin=5Plots.mm,
+    title="Profit Comparison NLP Strategies",
+)
+```
