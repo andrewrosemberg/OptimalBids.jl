@@ -1,6 +1,7 @@
 [deps]
 Clp = "e2554f3b-3117-50c0-817c-e040a3ddf72d"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
 Nonconvex = "01bcebdf-4d21-426d-b5c4-6132c1619978"
 NonconvexBayesian = "fb352abc-de7b-48de-9ebd-665b54b5d9b3"
 NonconvexIpopt = "bf347577-a06d-49ad-a669-8c0e005493b8"
