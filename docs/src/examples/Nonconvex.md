@@ -120,17 +120,17 @@ global fcalls = 0
 model = Nonconvex.Model()
 set_objective!(model, profit_function, flags = [:expensive])
 addvar!(model, [min_total_volume], [max_total_volume])
-add_ineq_constraint!(model, x -> -1) # errors when no inequality is added! 
+add_ineq_constraint!(model, x -> -1) # errors when no inequality is added!
 
 # Solution Method: Bayesian Optimization
 alg = BayesOptAlg(IpoptAlg())
 options = BayesOptOptions(
     sub_options = IpoptOptions(max_iter = maxiter),
-    maxiter = maxiter, ftol = 1e-4, ctol = 1e-5,
+    maxiter = maxiter, ftol = 1e-4, ctol = 1e-5, initialize=false,
 )
 
 # Optimize model:
-r_bayes = optimize(model, alg, [min_total_volume], options = options)
+r_bayes = optimize(model, alg, [min_total_volume]; options = options)
 
 best_solution = r_bayes.minimizer
 best_profit = -r_bayes.minimum
