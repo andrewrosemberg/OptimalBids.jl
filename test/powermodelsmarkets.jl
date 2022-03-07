@@ -90,6 +90,10 @@
             @test profit_for_bid!(market, zeros(num_strategic_buses)) == 0.0
         end
 
+        @testset "rrule profit_for_bid!" begin
+            test_rrule(profit_for_bid!, market ⊢ ChainRulesTestUtils.ChainRulesCore.NoTangent(), initial_bids)
+        end
+
         min_total_volume = 0.0
         max_total_volume = 100.0
         best_profit = 0.0

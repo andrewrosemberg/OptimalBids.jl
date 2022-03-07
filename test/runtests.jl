@@ -2,6 +2,7 @@ using Clp
 using OptimalBids
 using OptimalBids.PowerModelsMarkets
 using Test
+using ChainRulesTestUtils
 using Nonconvex
 using NonconvexIpopt # Nonconvex.@load Ipopt
 using NonconvexBayesian # Nonconvex.@load BayesOpt
