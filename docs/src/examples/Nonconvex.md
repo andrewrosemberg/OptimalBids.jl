@@ -12,6 +12,7 @@ This a example on how to use [Nonconvex.jl](https://github.com/JuliaNonconvex/No
 using OptimalBids
 using OptimalBids.PowerModelsMarkets
 using Clp # Market Clearing Solver
+using JuMP: optimizer_with_attributes
 
 using Nonconvex
 using NonconvexIpopt # Nonconvex.@load Ipopt
@@ -70,7 +71,7 @@ market = build_market(
     PowerModelsMarket,
     network_data,
     generator_indexes,
-    Clp.Optimizer,
+    optimizer_with_attributes(Clp.Optimizer, "LogLevel" => 0),
 )
 
 # Relative distribution of offers are sometimes predefined and cannot be changed at bidding time.
@@ -100,6 +101,7 @@ plt_comp = deepcopy(plt_range);
 
 # Nonconvex needs a minimization objective function that only receives the decision vector.
 function profit_function(total_volume)
+    global fcalls += 1
     return - profit_for_bid!(market, offer_weights .* total_volume[1])
 end
 
@@ -112,29 +114,29 @@ end
 # Max Number of Iterations for the solution method (proxy to a time limit at bidding time).
 # ps.: Currently, no option for limiting fcalls.
 maxiter = 10
+global fcalls = 0
 
 # Build Nonconvex optimization model:
-model = Model()
+model = Nonconvex.Model()
 set_objective!(model, profit_function, flags = [:expensive])
 addvar!(model, [min_total_volume], [max_total_volume])
-add_ineq_constraint!(model, x -> -1) # errors when no inequality is added! 
+add_ineq_constraint!(model, x -> -1) # errors when no inequality is added!
 
 # Solution Method: Bayesian Optimization
 alg = BayesOptAlg(IpoptAlg())
 options = BayesOptOptions(
     sub_options = IpoptOptions(max_iter = maxiter),
-    maxiter = maxiter, ftol = 1e-4, ctol = 1e-5,
+    maxiter = maxiter, ftol = 1e-4, ctol = 1e-5, initialize=false,
 )
 
 # Optimize model:
-r_bayes = optimize(model, alg, [min_total_volume], options = options)
+r_bayes = optimize(model, alg, [min_total_volume]; options = options)
 
 best_solution = r_bayes.minimizer
 best_profit = -r_bayes.minimum
-r_bayes.niters # number of iterations of the 
 
 scatter!(plt_comp, [best_solution; r_bayes.sub_result.minimizer], [best_profit; -r_bayes.sub_result.minimum],
-    label="BayesOpt - OPF Calls:$(r_bayes.sub_result.fcalls)",
+    label="BayesOpt - OPF Calls:$(fcalls)",
 )
 
 plt_surrogate = deepcopy(plt_range)
@@ -163,9 +165,10 @@ end
 =#
 
 maxeval = 10
+global fcalls = 0
 
 # Build Nonconvex optimization model:
-model = Model()
+model = Nonconvex.Model()
 set_objective!(model, profit_function)
 addvar!(model, [min_total_volume], [max_total_volume])
 
@@ -181,10 +184,10 @@ best_solution = r.minimizer
 best_profit = -r.minimum
 
 scatter!(plt_comp, [best_solution], [best_profit],
-    label="NLOpt-$(method) - OPF Calls:$(r.fcalls)",
+    label="NLOpt-$(method) - OPF Calls:$(fcalls)",
 );
 
-println("OPF Evaluations: ", r.fcalls)
+println("OPF Evaluations: ", fcalls)
 ```
 
 ### Nonconvex: NonconvexMultistart
@@ -194,17 +197,19 @@ println("OPF Evaluations: ", r.fcalls)
 using NonconvexMultistart
 
 # Build Nonconvex optimization model:
-model = Model()
+model = Nonconvex.Model()
 set_objective!(model, profit_function)
 addvar!(model, [min_total_volume], [max_total_volume])
 
 # Solution Method: Hyperopt
+global fcalls = 0
 maxiter = 4
 method = :Hyperopt
 alg = HyperoptAlg(IpoptAlg())
 options = HyperoptOptions(
     sub_options = IpoptOptions(max_iter = maxiter), sampler = GPSampler(),
-    iters = maxiter
+    iters = 2,
+    keep_all=true
 )
 
 # Optimize model
@@ -212,7 +217,6 @@ r_hyp = optimize(model, alg, [min_total_volume], options = options)
 
 best_solution = r_hyp.minimizer
 best_profit = -r_hyp.minimum
-fcalls = length(r_hyp.results) # number of function calls
 
 scatter!(plt_comp, best_solution, [best_profit],
     label="$(method) Offer - OPF Calls:$(fcalls)",

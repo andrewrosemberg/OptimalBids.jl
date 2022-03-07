@@ -14,7 +14,9 @@ makedocs(;
         assets=String[],
     ),
     pages=["Home" => "index.md",
-        "Examples" => "examples/Nonconvex.md",
+        "Examples" => ["Nonconvex.jl" => "examples/Nonconvex.md",
+            "Optim.jl" => "examples/Optim.md"
+        ],
         "API" => "api.md",
     ],
     checkdocs=:exports,
