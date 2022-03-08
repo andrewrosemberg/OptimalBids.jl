@@ -107,7 +107,7 @@ end
 
 ```
 
-### Nonconvex: BayesOpt
+### BayesOpt (0-Order)
 
 ```@example Nonconvex
 
@@ -147,24 +147,13 @@ plot!(plt_surrogate, range_mul_factor, -getproperty.(r_bayes.surrogates[1].(rang
 )
 ```
 
-### Nonconvex: NLopt
+### NLopt - BOBYQA (0-Order)
 
 ```@example Nonconvex
 
 using NonconvexNLopt
 
-# Since we are still focusing in derivative free options, let's not allow ChainRulesCore
-# to calculate the derivative of our profit function
-NonconvexCore.ChainRulesCore.@non_differentiable profit_function(args...)
-# or alternatively:
-#=
-import NonconvexIpopt.Zygote: gradient
-function NonconvexIpopt.Zygote.gradient(f, args...)
-    [nothing]
-end
-=#
-
-maxeval = 10
+maxeval = 4
 global fcalls = 0
 
 # Build Nonconvex optimization model:
@@ -190,7 +179,7 @@ scatter!(plt_comp, [best_solution], [best_profit],
 println("OPF Evaluations: ", fcalls)
 ```
 
-### Nonconvex: NonconvexMultistart
+### NonconvexMultistart - GPSampler (0-Order)
 
 ```@example Nonconvex
 
@@ -230,11 +219,41 @@ scatter!(plt_visited, [i.minimizer[1] for i in r_hyp.results], [- i.minimum for 
 )
 ```
 
-### Nonconvex: Profit Comparison NLP Strategies
+### Profit Comparison NLP 0-Order Strategies
 
 ```@example Nonconvex
 
 plot(plt_comp, margin=5Plots.mm,
     title="Profit Comparison NLP Strategies",
+)
+```
+
+### NLopt - CCSAQ (1-Order)
+
+```@example Nonconvex
+
+using NonconvexNLopt
+
+maxeval = 4
+global fcalls = 0
+
+# Build Nonconvex optimization model:
+model = Nonconvex.Model()
+set_objective!(model, profit_function)
+addvar!(model, [min_total_volume], [max_total_volume])
+
+# Solution Method: Sequential Least-Squares Quadratic Programming
+method = :LD_CCSAQ
+alg = NLoptAlg(method)
+options = NLoptOptions(maxeval=maxeval)
+
+# Optimize model
+r = optimize(model, alg, [min_total_volume], options = options)
+
+best_solution = r.minimizer
+best_profit = -r.minimum
+
+scatter!(plt_comp, [best_solution], [best_profit],
+    label="NLOpt-$(method) - OPF Calls:$(fcalls)",
 )
 ```

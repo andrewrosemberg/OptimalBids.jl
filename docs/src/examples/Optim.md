@@ -105,7 +105,7 @@ end
 
 ```
 
-### Optim: NelderMead
+### NelderMead (0-Order)
 
 ```@example Optim
 
@@ -139,7 +139,39 @@ scatter!(plt_comp, [best_solution], [best_profit],
 )
 ```
 
-### Optim: Brent
+### LBFGS (1-Order)
+
+```@example Optim
+
+# Profit and gradient
+using LinearAlgebra
+
+function fg!(F,G,total_volume)
+    y, Δ = profit_and_gradient_for_bid!(market, offer_weights .* total_volume[1])
+    global fcalls += 1
+
+    isnothing(G) || copyto!(G, dot(Δ, offer_weights))
+    isnothing(F) || return y
+
+    nothing
+end
+
+# Max Number of Iterations for the solution method (proxy to a time limit at bidding time).
+maxiter = 10
+global fcalls = 0
+
+inner_optimizer = LBFGS()
+results = Optim.optimize(Optim.only_fg!(fg!), lower, upper, initial_x, Fminbox(inner_optimizer), Optim.Options(f_calls_limit=maxiter, callback = advanced_fcall_control, store_trace=true))
+
+best_solution = results.minimizer
+best_profit = -results.minimum
+
+scatter!(plt_comp, [best_solution], [best_profit],
+    label="LBFGS - OPF Calls:$(fcalls)",
+)
+```
+
+### Brent (0-Order)
 
 ```@example Optim
 
