@@ -91,8 +91,8 @@
         end
 
         @testset "rrule profit_for_bid!" begin
-            test_rrule(profit_for_bid!, market ⊢ ChainRulesTestUtils.ChainRulesCore.NoTangent(), initial_bids)
-            test_rrule(profit_for_bid!, market ⊢ ChainRulesTestUtils.ChainRulesCore.NoTangent(), initial_bids * 1e7)
+            test_rrule(profit_for_bid!, market ⊢ ChainRulesCore.NoTangent(), initial_bids)
+            test_rrule(profit_for_bid!, market ⊢ ChainRulesCore.NoTangent(), initial_bids * 1e7)
         end
 
         min_total_volume = 0.0

@@ -105,7 +105,7 @@ end
 
 ```
 
-### Optim: NelderMead
+### NelderMead (0-Order)
 
 ```@example Optim
 
@@ -139,7 +139,7 @@ scatter!(plt_comp, [best_solution], [best_profit],
 )
 ```
 
-### Optim: Brent
+### Brent (0-Order)
 
 ```@example Optim
 
