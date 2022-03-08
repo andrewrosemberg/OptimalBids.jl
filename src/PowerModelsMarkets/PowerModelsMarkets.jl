@@ -13,7 +13,7 @@ import ..OptimalBids: Market, build_market, change_bids!, clear_market!, calcula
 using Reexport: Reexport
 
 export PowerModelsMarket,
-    build_market, change_bids!, clear_market!, calculate_profit, add_generator
+    build_market, change_bids!, clear_market!, calculate_profit, add_generator, profit_and_gradient_for_bid!
 
 Reexport.@reexport using PowerModels
 
