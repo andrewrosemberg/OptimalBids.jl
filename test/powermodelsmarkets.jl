@@ -1,6 +1,9 @@
 @testset "PowerModelsMarkets" begin
-    @testset "Case: $case_name" for case_name in ["case118.m", "case5_re_uc.m"]
+    @testset "Case: $case_name" for case_name in ["pglib_opf_case118_ieee.m", "pglib_opf_case5_pjm.m"]
+        # Download test case
+        DATA_DIR = mktempdir()
         case_file_path = joinpath(DATA_DIR, case_name)
+        Downloads.download(joinpath("https://raw.githubusercontent.com/power-grid-lib/pglib-opf/01681386d084d8bd03b429abcd1ee6966f68b9a3", case_name), case_file_path)
 
         # Choice of number of strategic bidding locations
         percentage_buses = 0.1
