@@ -17,6 +17,7 @@ using JuMP: optimizer_with_attributes
 using Optim
 
 using Plots # For some evaluation plots at the end
+using Downloads # To download Test Cases
 
 ```
 
@@ -25,21 +26,11 @@ using Plots # For some evaluation plots at the end
 ```@example Optim
 
 # Read market data from IEEE 118 bus case
-case_name = "case118.m"
-DATA_DIR = joinpath(dirname(dirname(dirname(@__DIR__))), "test/data")
+case_name = "pglib_opf_case118_ieee.m"
+DATA_DIR = mktempdir()
 case_file_path = joinpath(DATA_DIR, case_name)
+Downloads.download("https://raw.githubusercontent.com/power-grid-lib/pglib-opf/01681386d084d8bd03b429abcd1ee6966f68b9a3/" * case_name, case_file_path)
 network_data = PowerModels.parse_file(case_file_path)
-
-# Let's make the case a bit more interesting, by adding some randomness to existing generators costs and available load.
-using Random
-Random.seed!(654654)
-for gen in values(network_data["gen"])
-    gen["cost"][end-1] += rand(-2000.0:2500.0)
-end
-load_mul_factor = 6.8
-for load in collect(values(network_data["load"]))[1:20:end]
-    load["pd"] *= load_mul_factor * rand(0.01:0.01:3)
-end
 
 # Pretend we are a company constructing a new set of generators in the grid.
 # Choose a percentage of the total number of buses to install the new generators:
@@ -73,7 +64,9 @@ market = build_market(
 )
 
 # Relative distribution of offers are sometimes predefined and cannot be changed at bidding time.
-offer_weights = rand(num_strategic_buses)
+using Random
+rng = MersenneTwister(0)
+offer_weights = rand(rng, num_strategic_buses)
 offer_weights = offer_weights/ sum(offer_weights)
 
 # However, the decision maker is allowed to increase all bids evenly:
