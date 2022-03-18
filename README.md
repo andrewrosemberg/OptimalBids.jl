@@ -41,17 +41,6 @@ CASE DEFINITION
 case_name = "case118.m"
 network_data = PowerModels.parse_file(case_name)
 
-# Let's make the case a bit more interesting, by adding some randomness to existing generators costs and available load.
-using Random
-Random.seed!(654654)
-for gen in values(network_data["gen"])
-    gen["cost"][end-1] += rand(-2000.0:2500.0)
-end
-load_mul_factor = 6.8
-for load in collect(values(network_data["load"]))[1:20:end]
-    load["pd"] *= load_mul_factor * rand(0.01:0.01:3)
-end
-
 # Pretend we are a company constructing a new set of generators in the grid.
 # Choose a percentage of the total number of buses to install the new generators:
 percentage_buses = 0.09
