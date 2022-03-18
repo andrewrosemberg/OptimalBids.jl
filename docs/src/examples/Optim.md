@@ -29,7 +29,7 @@ using Downloads # To download Test Cases
 case_name = "pglib_opf_case118_ieee.m"
 DATA_DIR = mktempdir()
 case_file_path = joinpath(DATA_DIR, case_name)
-Downloads.download(joinpath("https://raw.githubusercontent.com/power-grid-lib/pglib-opf/01681386d084d8bd03b429abcd1ee6966f68b9a3", case_name), case_file_path)
+Downloads.download("https://raw.githubusercontent.com/power-grid-lib/pglib-opf/01681386d084d8bd03b429abcd1ee6966f68b9a3/" * case_name, case_file_path)
 network_data = PowerModels.parse_file(case_file_path)
 
 # Pretend we are a company constructing a new set of generators in the grid.

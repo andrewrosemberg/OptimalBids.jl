@@ -3,7 +3,7 @@
         # Download test case
         DATA_DIR = mktempdir()
         case_file_path = joinpath(DATA_DIR, case_name)
-        Downloads.download(joinpath("https://raw.githubusercontent.com/power-grid-lib/pglib-opf/01681386d084d8bd03b429abcd1ee6966f68b9a3", case_name), case_file_path)
+        Downloads.download("https://raw.githubusercontent.com/power-grid-lib/pglib-opf/01681386d084d8bd03b429abcd1ee6966f68b9a3/" * case_name, case_file_path)
 
         # Choice of number of strategic bidding locations
         percentage_buses = 0.1
