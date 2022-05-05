@@ -79,10 +79,55 @@ offer_weights = offer_weights/ sum(offer_weights)
 
 # However, the decision maker is allowed to increase all bids evenly:
 min_total_volume = 0.0
-max_total_volume = 555.0
+max_total_volume = 655.0
 range_mul_factor = min_total_volume:1.0:max_total_volume
 bid_range = [offer_weights .* [i] for i in range_mul_factor]
 p_curve = profit_curve!(market, bid_range)
+
+```
+
+## Optim API
+
+```@example AbstractGPs
+
+function bfgs(objective, initial_params; verbose=false)
+   training_results = Optim.optimize(
+        objective,
+        θ -> only(Zygote.gradient(objective, θ)),
+        initial_params,
+        LBFGS(
+            alphaguess = Optim.LineSearches.InitialStatic(scaled=true),
+            linesearch = Optim.LineSearches.BackTracking(),
+        ),
+        Optim.Options(show_trace = verbose);
+        inplace=false,
+    )
+
+   return (training_results.minimum, training_results.minimizer)
+end
+
+function multi_start_hyperopt(target, algorithm, num_iterations, initial_initial_params; update_initials = (θ_last, θ_best, obj_diff) -> rand(length(θ_last)), verbose=false, kwargs...)
+    θ_initials = Array{Float64, 2}(undef, num_iterations, length(initial_initial_params));
+    vistited_best_fs = Array{Float64}(undef, num_iterations);
+    best_θ = fill(1/length(initial_initial_params), length(initial_initial_params))
+    best_f = target(best_θ)
+    last_θ = best_θ
+    last_f = best_f
+    for i = 1:num_iterations
+        try
+            (last_f, last_θ) = algorithm(target, update_initials(last_θ, best_θ, last_f-best_f); verbose=verbose, kwargs...)
+        catch
+            println("SHIT")
+        end
+        θ_initials[i,:] .= last_θ
+        if last_f < best_f
+            best_f = last_f
+            best_θ = last_θ
+        end
+        vistited_best_fs[i] = best_f
+    end
+    return best_f, best_θ, θ_initials, vistited_best_fs
+end
 
 ```
 
@@ -93,7 +138,8 @@ p_curve = profit_curve!(market, bid_range)
 ```@example AbstractGPs
 
 # Randomly choose observed data
-idx = rand(1:size(range_mul_factor,1), 10)
+number_samples = 9
+idx = [1; rand(2:size(range_mul_factor,1), number_samples)]
 x = collect(range_mul_factor)[idx]
 y = p_curve[idx]
 
@@ -105,7 +151,9 @@ plt_comp = plot(collect(range_mul_factor), p_curve,
     color="black",
     width=3,
 );
-scatter!(plt_comp, x, y; label="Data")
+scatter!(plt_comp, x, y; label="Data");
+
+plt_comp
 
 ```
 
@@ -115,8 +163,8 @@ scatter!(plt_comp, x, y; label="Data")
 
 ## Define GP prior with Matern32Kernel
 flat_initial_params, unflatten = flatten((;
-    var_kernel = positive(0.6),
-    λ = positive(50000.5),
+    var_kernel = bounded(10.0, 1.0, 1e8),
+    λ = bounded(0.005, 0.0, 0.01),
 ))
 
 # Construct a function to unpack flattened parameters and pull out the raw values.
@@ -129,27 +177,15 @@ end
 
 # Define MLE objective
 function objective(params)
-    f = build_gp(params)
+    f = build_gp(unpack(params))
     return -logpdf(f(x, 0.001), y)
 end
 
 # Optimise using Optim
-training_results = Optim.optimize(
-    objective ∘ unpack,
-    θ -> only(Zygote.gradient(objective ∘ unpack, θ)),
-    [log(0.001); log(1.0)],
-    [log(3.0); log(100000000.0)],
-    flat_initial_params,
-    Fminbox(BFGS(
-        alphaguess = Optim.LineSearches.InitialStatic(scaled=true),
-        linesearch = Optim.LineSearches.BackTracking(),
-    )),
-    Optim.Options(show_trace = true);
-    inplace=false,
-)
+(best_f, best_θ, θ_initials, vistited_best_fs) = multi_start_hyperopt(objective, bfgs, 100, flat_initial_params)
 
 # Extracting the optimal values of the parameters
-optimal_params = unpack(training_results.minimizer)
+optimal_params = unpack(best_θ)
 
 # Final GP
 f = build_gp(optimal_params)
@@ -163,5 +199,98 @@ p_fx = posterior(fx, y)
 
 # Plot posterior.
 plot!(plt_comp, range_mul_factor, p_fx; label="Posterior - " * string(Matern32Kernel))
+
+```
+
+
+### RationalKernel
+
+```@example AbstractGPs
+
+## Define GP prior with RationalKernel
+flat_initial_params, unflatten = flatten((;
+    var_kernel = bounded(10.0, 6.0, 1e8),
+    λ = bounded(0.005, 0.0, 0.01),
+    α = positive(0.05),
+))
+
+# Construct a function to unpack flattened parameters and pull out the raw values.
+unpack = ParameterHandling.value ∘ unflatten
+params = unpack(flat_initial_params)
+
+function build_gp(params)
+    return GP(params.var_kernel * RationalKernel(α=params.α) ∘ ScaleTransform(params.λ))
+end
+
+# Define MLE objective
+function objective(params)
+    f = build_gp(unpack(params))
+    return -logpdf(f(x, 0.001), y)
+end
+
+# Optimise using Optim
+(best_f, best_θ, θ_initials, vistited_best_fs) = multi_start_hyperopt(objective, bfgs, 100, flat_initial_params)
+
+# Extracting the optimal values of the parameters
+optimal_params = unpack(best_θ)
+
+# Final GP
+f = build_gp(optimal_params)
+
+# Finite projection of `f` at inputs `x`.
+# Added Gaussian noise with variance 0.001.
+fx = f(x, 0.001)
+
+# Exact posterior given `y`. This is another GP.
+p_fx = posterior(fx, y)
+
+# Plot posterior.
+plot!(plt_comp, range_mul_factor, p_fx; label="Posterior - " * string(RationalKernel))
+
+```
+
+### FBMKernel
+
+```@example AbstractGPs
+
+## Define GP prior with FBMKernel
+flat_initial_params, unflatten = flatten((;
+    var_kernel = bounded(10.0, 6.0, 1e8),
+    λ = bounded(0.005, 0.0, 0.01),
+    h = bounded(0.05, 0.0, 1.0),
+))
+
+# Construct a function to unpack flattened parameters and pull out the raw values.
+unpack = ParameterHandling.value ∘ unflatten
+params = unpack(flat_initial_params)
+
+function build_gp(params)
+    return GP(params.var_kernel * FBMKernel(h=params.h) ∘ ScaleTransform(params.λ))
+end
+
+# Define MLE objective
+function objective(params)
+    f = build_gp(unpack(params))
+    return -logpdf(f(x, 0.001), y)
+end
+
+# Optimise using Optim
+(best_f, best_θ, θ_initials, vistited_best_fs) = multi_start_hyperopt(objective, bfgs, 100, flat_initial_params)
+
+# Extracting the optimal values of the parameters
+optimal_params = unpack(best_θ)
+
+# Final GP
+f = build_gp(optimal_params)
+
+# Finite projection of `f` at inputs `x`.
+# Added Gaussian noise with variance 0.001.
+fx = f(x, 0.001)
+
+# Exact posterior given `y`. This is another GP.
+p_fx = posterior(fx, y)
+
+# Plot posterior.
+plot!(plt_comp, range_mul_factor, p_fx; label="Posterior - " * string(FBMKernel))
 
 ```
