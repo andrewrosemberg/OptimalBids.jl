@@ -15,7 +15,8 @@ makedocs(;
     ),
     pages=["Home" => "index.md",
         "Examples" => ["Nonconvex.jl" => "examples/Nonconvex.md",
-            "Optim.jl" => "examples/Optim.md"
+            "Optim.jl" => "examples/Optim.md",
+            "AbstractGPs.jl" => "examples/GaussianProcesses.md"
         ],
         "API" => "api.md",
     ],
