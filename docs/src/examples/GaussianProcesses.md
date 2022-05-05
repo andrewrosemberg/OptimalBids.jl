@@ -154,7 +154,6 @@ plt_comp = plot(collect(range_mul_factor), p_curve,
 scatter!(plt_comp, x, y; label="Data");
 
 plt_comp
-
 ```
 
 ### Matern32Kernel
@@ -199,7 +198,6 @@ p_fx = posterior(fx, y)
 
 # Plot posterior.
 plot!(plt_comp, range_mul_factor, p_fx; label="Posterior - " * string(Matern32Kernel))
-
 ```
 
 
@@ -246,7 +244,6 @@ p_fx = posterior(fx, y)
 
 # Plot posterior.
 plot!(plt_comp, range_mul_factor, p_fx; label="Posterior - " * string(RationalKernel))
-
 ```
 
 ### FBMKernel
@@ -292,5 +289,4 @@ p_fx = posterior(fx, y)
 
 # Plot posterior.
 plot!(plt_comp, range_mul_factor, p_fx; label="Posterior - " * string(FBMKernel))
-
 ```
