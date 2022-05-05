@@ -21,7 +21,7 @@ Simple Package to help evaluate bids in markets/auctions.
 ## Installation
 
 ```julia
-] add https://github.com/andrewrosemberg/OptimalBids.jl
+] add OptimalBids
 ```
 
 ## Overview
