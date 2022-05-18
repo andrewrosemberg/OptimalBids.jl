@@ -25,6 +25,7 @@ using Zygote
 using ParameterHandling: flatten
 
 using Plots # For some evaluation plots at the end
+using Plots.PlotMeasures
 using Downloads # To download Test Cases
 
 ```
@@ -150,6 +151,8 @@ plt_comp = plot(collect(range_mul_factor), p_curve,
     legend=:outertopright,
     color="black",
     width=3,
+    left_margin=10mm,
+    bottom_margin=10mm,
 );
 scatter!(plt_comp, x, y; label="Data");
 

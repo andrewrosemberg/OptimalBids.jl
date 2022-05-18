@@ -19,6 +19,7 @@ using NonconvexIpopt # Nonconvex.@load Ipopt
 using NonconvexBayesian # Nonconvex.@load BayesOpt
 
 using Plots # For some evaluation plots at the end
+using Plots.PlotMeasures
 using Downloads # To download Test Cases
 
 ```
@@ -84,6 +85,8 @@ plt_range = plot(collect(range_mul_factor), p_curve,
     ylabel="Profit (\$)",
     xlabel="Multiplicative Factor",
     legend=:outertopright,
+    left_margin=10mm,
+    bottom_margin=10mm,
 );
 plt_comp = deepcopy(plt_range);
 ```
