@@ -10,7 +10,6 @@ This a example on how to use [BilevelJuMP.jl](https://github.com/joaquimg/Bileve
 ```@example BilevelJuMP
 using OptimalBids
 using OptimalBids.PowerModelsMarkets
-using Clp # Market Clearing Solver
 using JuMP
 
 using BilevelJuMP
@@ -63,7 +62,7 @@ market = build_market(
     PowerModelsMarket,
     network_data,
     generator_indexes,
-    optimizer_with_attributes(Clp.Optimizer, "LogLevel" => 0),
+    optimizer_with_attributes(Gurobi.Optimizer, "OutputFlag" => 0),
 )
 
 # Relative distribution of offers are sometimes predefined and cannot be changed at bidding time.
@@ -75,7 +74,7 @@ offer_weights = offer_weights/ sum(offer_weights)
 # However, the decision maker is allowed to increase all bids evenly:
 min_total_volume = 0.0
 max_total_volume = 655.0
-range_mul_factor = min_total_volume:0.1:max_total_volume
+range_mul_factor = min_total_volume:1.0:max_total_volume
 bid_range = [offer_weights .* [i] for i in range_mul_factor]
 p_curve = profit_curve!(market, bid_range)
 
@@ -87,6 +86,7 @@ plt_range = plot(collect(range_mul_factor), p_curve,
     legend=:outertopright,
     left_margin=10mm,
     bottom_margin=10mm,
+    size=(900, 600)
 );
 plt_comp = deepcopy(plt_range);
 ```
@@ -110,7 +110,7 @@ plt_comp = deepcopy(plt_range);
         mode = BilevelJuMP.ProductMode(1e-5)
     )
 
-    @variable(Upper(model), 0 <= qS[i=1:num_strategic_buses] <= max_generations[i], start = 0.0) # if `start=0.1` => false NLP infeastible
+    @variable(Upper(model), 0 <= qS[i=1:num_strategic_buses] <= max_generations[i], start = 2.0) # if `start=0.1` => false NLP infeastible
 
     @constraint(Upper(model), sum(qS) <= max_total_volume)
 
@@ -134,9 +134,11 @@ plt_comp = deepcopy(plt_range);
     p_curve_nlp = profit_curve!(market, bid_range_nlp)
     plot!(plt_comp, sum.(bid_range_nlp), p_curve_nlp,
         label="Range Evaluation - NLP",
+        color="purple"
     );
     scatter!(plt_comp, [sum(nlp_bids)], [nlp_profit],
         label="Bilevel Solution - NLP",
+        color="purple"
     )
 ```
 
@@ -150,7 +152,7 @@ plt_comp = deepcopy(plt_range);
     change_bids!(market, max_generations)
 
     # optimize
-    opt = QuadraticToBinary.Optimizer{Float64}(Gurobi.Optimizer())
+    opt = QuadraticToBinary.Optimizer{Float64}(MOI.instantiate(optimizer_with_attributes(Gurobi.Optimizer, "MIPGap" => 0.2)))
     model = BilevelModel(() -> opt, 
         mode = BilevelJuMP.FortunyAmatMcCarlMode(primal_big_M = 10000, dual_big_M = 10000)
     )
@@ -180,9 +182,11 @@ plt_comp = deepcopy(plt_range);
     p_curve_fortuny = profit_curve!(market, bid_range_fortuny)
     plot!(plt_comp, sum.(bid_range_fortuny), p_curve_fortuny,
         label="Range Evaluation - Fortuny",
+        color="green"
     );
     scatter!(plt_comp, [sum(fortuny_bids)], [fortuny_profit],
         label="Bilevel Solution - Fortuny",
+        color="green"
     )
 ```
 
@@ -195,7 +199,7 @@ plt_comp = deepcopy(plt_range);
     change_bids!(market, max_generations)
 
     # optimize
-    opt = QuadraticToBinary.Optimizer{Float64}(Gurobi.Optimizer())
+    opt = QuadraticToBinary.Optimizer{Float64}(MOI.instantiate(optimizer_with_attributes(Gurobi.Optimizer, "MIPGap" => 0.2)))
     model = BilevelModel(() -> opt, 
         mode = BilevelJuMP.SOS1Mode()
     )
@@ -224,8 +228,10 @@ plt_comp = deepcopy(plt_range);
     p_curve_SOS = profit_curve!(market, bid_range_SOS)
     plot!(plt_comp, sum.(bid_range_SOS), p_curve_SOS,
         label="Range Evaluation - SOS",
+        color="red"
     );
     scatter!(plt_comp, [sum(SOS_bids)], [SOS_profit],
         label="Bilevel Solution - SOS",
+        color="red"
     )
 ```
