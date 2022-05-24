@@ -11,7 +11,7 @@ This a example on how to use [Nonconvex.jl](https://github.com/JuliaNonconvex/No
 ```@example Nonconvex
 using OptimalBids
 using OptimalBids.PowerModelsMarkets
-using Clp # Market Clearing Solver
+using Gurobi # Market Clearing Solver
 using JuMP: optimizer_with_attributes
 
 using Nonconvex
@@ -63,7 +63,7 @@ market = build_market(
     PowerModelsMarket,
     network_data,
     generator_indexes,
-    optimizer_with_attributes(Clp.Optimizer, "LogLevel" => 0),
+    optimizer_with_attributes(Gurobi.Optimizer, "OutputFlag" => 0),
 )
 
 # Relative distribution of offers are sometimes predefined and cannot be changed at bidding time.
@@ -74,8 +74,8 @@ offer_weights = offer_weights/ sum(offer_weights)
 
 # However, the decision maker is allowed to increase all bids evenly:
 min_total_volume = 0.0
-max_total_volume = 65.0
-range_mul_factor = min_total_volume:0.1:max_total_volume
+max_total_volume = 150.0
+range_mul_factor = min_total_volume:1.0:max_total_volume
 bid_range = [offer_weights .* [i] for i in range_mul_factor]
 p_curve = profit_curve!(market, bid_range)
 
@@ -83,10 +83,11 @@ p_curve = profit_curve!(market, bid_range)
 plt_range = plot(collect(range_mul_factor), p_curve,
     label="Range Evaluation",
     ylabel="Profit (\$)",
-    xlabel="Multiplicative Factor",
+    xlabel="Total Volume (MWh)",
     legend=:outertopright,
     left_margin=10mm,
     bottom_margin=10mm,
+    size=(900, 600)
 );
 plt_comp = deepcopy(plt_range);
 ```
@@ -98,7 +99,10 @@ plt_comp = deepcopy(plt_range);
 # Nonconvex needs a minimization objective function that only receives the decision vector.
 function profit_function(total_volume)
     global fcalls += 1
-    return - profit_for_bid!(market, offer_weights .* total_volume[1])
+    global visited_volumes[fcalls] = total_volume[1]
+    global visited_times[fcalls] = time() - start_time
+    global visited_objective[fcalls] = profit_for_bid!(market, offer_weights .* total_volume[1])
+    return - visited_objective[fcalls]
 end
 
 ```
@@ -109,8 +113,11 @@ end
 
 # Max Number of Iterations for the solution method (proxy to a time limit at bidding time).
 # ps.: Currently, no option for limiting fcalls.
-maxiter = 10
+maxiter = 50
 global fcalls = 0
+global visited_objective = Array{Float64}(undef, 2 * maxiter)
+global visited_volumes = Array{Float64}(undef, 2 * maxiter)
+global visited_times = Array{Float64}(undef, 2 * maxiter)
 
 # Build Nonconvex optimization model:
 model = Nonconvex.Model()
@@ -121,12 +128,17 @@ add_ineq_constraint!(model, x -> -1) # errors when no inequality is added!
 # Solution Method: Bayesian Optimization
 alg = BayesOptAlg(IpoptAlg())
 options = BayesOptOptions(
-    sub_options = IpoptOptions(max_iter = maxiter),
-    maxiter = maxiter, ftol = 1e-4, ctol = 1e-5, initialize=false,
+    sub_options = IpoptOptions(),
+    ninit=floor(Int, maxiter / 10),
+    maxiter = maxiter, ftol = 1e-4, ctol = 1e-5, initialize=true, postoptimize=true,
+    kernel=FBMKernel(h=0.53) ∘ ScaleTransform(0.0063),
+    noise=0.001,
+    std_multiple=6.96e7
 )
 
 # Optimize model:
-r_bayes = optimize(model, alg, [min_total_volume]; options = options)
+global start_time=time()
+r_bayes = optimize(model, alg, [max_total_volume / 2]; options = options)
 
 best_solution = r_bayes.minimizer
 best_profit = -r_bayes.minimum
@@ -135,7 +147,7 @@ scatter!(plt_comp, [best_solution; r_bayes.sub_result.minimizer], [best_profit; 
     label="BayesOpt - OPF Calls:$(fcalls)",
 )
 
-plt_surrogate = deepcopy(plt_range)
+plt_surrogate = deepcopy(plt_range);
 
 plot!(plt_surrogate, range_mul_factor, -getproperty.(r_bayes.surrogates[1].(range_mul_factor), :lo),
     title="BayesOpt Analysis",

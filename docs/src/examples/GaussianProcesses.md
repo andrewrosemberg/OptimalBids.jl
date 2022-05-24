@@ -13,7 +13,7 @@ This a example on how to use [AbstractGPs.jl](https://github.com/JuliaGaussianPr
 ```@example AbstractGPs
 using OptimalBids
 using OptimalBids.PowerModelsMarkets
-using Clp # Market Clearing Solver
+using Gurobi # Market Clearing Solver
 using JuMP: optimizer_with_attributes
 
 using AbstractGPs
@@ -69,7 +69,7 @@ market = build_market(
     PowerModelsMarket,
     network_data,
     generator_indexes,
-    optimizer_with_attributes(Clp.Optimizer, "LogLevel" => 0),
+    optimizer_with_attributes(Gurobi.Optimizer, "OutputFlag" => 0),
 )
 
 # Relative distribution of offers are sometimes predefined and cannot be changed at bidding time.
