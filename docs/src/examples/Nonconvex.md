@@ -102,11 +102,29 @@ plt_comp = deepcopy(plt_range);
 
 # Nonconvex needs a minimization objective function that only receives the decision vector.
 function profit_function(total_volume)
-    global fcalls += 1
-    global visited_volumes[fcalls] = first(total_volume)
-    global visited_times[fcalls] = time() - start_time
-    global visited_objective[fcalls] = profit_for_bid!(market, offer_weights .* visited_volumes[fcalls])
-    return - visited_objective[fcalls]
+    return - profit_for_bid!(market, offer_weights .* first(total_volume))
+end
+
+mutable struct StorageCallbackProfit <: Function
+    start_time::Float64
+    fcalls::Int
+    visited_objective::Array{Float64}
+    visited_volumes::Array{Float64}
+    visited_times::Array{Float64}
+end
+StorageCallbackProfit(maxiter, start_time) = StorageCallbackProfit(start_time, 0, 
+    Array{Float64}(undef, 5 * maxiter),
+    Array{Float64}(undef, 5 * maxiter),
+    Array{Float64}(undef, 5 * maxiter),
+)
+
+function (callback::StorageCallbackProfit)(total_volume)
+    Zygote.@ignore callback.fcalls += 1
+    Zygote.@ignore callback.visited_volumes[callback.fcalls] = first(total_volume)
+    Zygote.@ignore callback.visited_times[callback.fcalls] = time() - callback.start_time
+    obj = profit_for_bid!(market, offer_weights .* first(total_volume))
+    Zygote.@ignore callback.visited_objective[callback.fcalls] = obj
+    return - obj
 end
 
 # Find time to change bids and solve opf
@@ -122,15 +140,13 @@ opf_time /= num_opfs
 
 # Max Number of Iterations for the solution method (proxy to a time limit at bidding time).
 # ps.: Currently, no option for limiting fcalls.
-maxiter = 30
-global fcalls = 0
-global visited_objective = Array{Float64}(undef, 10 * maxiter)
-global visited_volumes = Array{Float64}(undef, 10 * maxiter)
-global visited_times = Array{Float64}(undef, 10 * maxiter)
+maxiter = 10
+
+storage_profit_function = StorageCallbackProfit(maxiter, time())
 
 # Build Nonconvex optimization model:
 model = Nonconvex.Model()
-set_objective!(model, profit_function, flags = [:expensive])
+set_objective!(model, storage_profit_function, flags = [:expensive])
 addvar!(model, [min_total_volume], [max_total_volume])
 add_ineq_constraint!(model, x -> -1) # errors when no inequality is added!
 
@@ -147,14 +163,13 @@ options = BayesOptOptions(
 )
 
 # Optimize model:
-global start_time=time()
 r_bayes = optimize(model, alg, [max_total_volume / 2]; options = options)
 
 best_solution = r_bayes.minimizer
 best_profit = -r_bayes.minimum
 
 scatter!(plt_comp, [best_solution], [best_profit],
-    label="BayesOpt - OPF Calls:$(fcalls)",
+    label="BayesOpt - OPF Calls:$(storage_profit_function.fcalls)",
 )
 
 plt_surrogate = deepcopy(plt_range);
@@ -164,19 +179,22 @@ lb_surrugate = -getproperty.(r_bayes.surrogates[1].(range_mul_factor), :hi)
 std_surrugate = (up_surrugate .- lb_surrugate) / 2
 med_surrugate = lb_surrugate + std_surrugate
 
-visited_times = visited_times ./ opf_time
+storage_profit_function.visited_times = storage_profit_function.visited_times ./ opf_time
 
 plot!(plt_surrogate, range_mul_factor, med_surrugate,
     ribbon=std_surrugate,
     title="BayesOpt Analysis",
     label="Surrogate Function",
 );
-scatter!(plt_surrogate, visited_volumes[1:fcalls], visited_objective[1:fcalls]; label="Visited")
+scatter!(plt_surrogate, storage_profit_function.visited_volumes[1:storage_profit_function.fcalls], 
+    storage_profit_function.visited_objective[1:storage_profit_function.fcalls]; label="Visited"
+)
 ```
 
 ```@example Nonconvex
 
-plot(visited_times[1:fcalls], (maximum_pq_curve .- accumulate(max, visited_objective[1:fcalls])) ./ maximum_pq_curve,
+plot(storage_profit_function.visited_times[1:storage_profit_function.fcalls], 
+(maximum_pq_curve .- accumulate(max, storage_profit_function.visited_objective[1:storage_profit_function.fcalls])) ./ maximum_pq_curve,
     xlabel="Time (x OPF)",
     ylabel="Optimality Gap (%)",
     ylim=(0.0,1.0),
@@ -190,11 +208,11 @@ plot(visited_times[1:fcalls], (maximum_pq_curve .- accumulate(max, visited_objec
 using NonconvexNLopt
 
 maxeval = 50
-global fcalls = 0
+storage_profit_function = StorageCallbackProfit(maxeval, time())
 
 # Build Nonconvex optimization model:
 model = Nonconvex.Model()
-set_objective!(model, profit_function)
+set_objective!(model, storage_profit_function)
 addvar!(model, [min_total_volume], [max_total_volume])
 
 # Solution Method: Sequential Least-Squares Quadratic Programming
@@ -203,16 +221,32 @@ alg = NLoptAlg(:LN_BOBYQA)
 options = NLoptOptions(maxeval=maxeval)
 
 # Optimize model
-r = optimize(model, alg, [min_total_volume], options = options)
+callback_storage = StorageCallback(maxeval, time())
+r = optimize(model, alg, [max_total_volume / 2]; options = options)
 
 best_solution = r.minimizer
 best_profit = -r.minimum
 
 scatter!(plt_comp, [best_solution], [best_profit],
-    label="NLOpt-$(method) - OPF Calls:$(fcalls)",
+    label="NLOpt-$(method) - OPF Calls:$(storage_profit_function.fcalls)",
 );
 
-println("OPF Evaluations: ", fcalls)
+
+plt_surrogate = deepcopy(plt_range);
+
+storage_profit_function.visited_times = storage_profit_function.visited_times ./ opf_time
+
+scatter!(plt_surrogate, storage_profit_function.visited_volumes[1:storage_profit_function.fcalls], 
+    storage_profit_function.visited_objective[1:storage_profit_function.fcalls]; label="Visited"
+)
+
+plot(storage_profit_function.visited_times[1:storage_profit_function.fcalls], 
+(maximum_pq_curve .- accumulate(max, storage_profit_function.visited_objective[1:storage_profit_function.fcalls])) ./ maximum_pq_curve,
+    xlabel="Time (x OPF)",
+    ylabel="Optimality Gap (%)",
+    ylim=(0.0,1.0),
+    legend=false
+)
 ```
 
 ### NonconvexMultistart - GPSampler (0-Order)
