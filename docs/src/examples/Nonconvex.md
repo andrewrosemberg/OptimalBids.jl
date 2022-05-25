@@ -18,6 +18,9 @@ using Nonconvex
 using NonconvexIpopt # Nonconvex.@load Ipopt
 using NonconvexBayesian # Nonconvex.@load BayesOpt
 
+using AbstractGPs
+using KernelFunctions
+
 using Plots # For some evaluation plots at the end
 using Plots.PlotMeasures
 using Downloads # To download Test Cases
@@ -78,6 +81,7 @@ max_total_volume = 150.0
 range_mul_factor = min_total_volume:1.0:max_total_volume
 bid_range = [offer_weights .* [i] for i in range_mul_factor]
 p_curve = profit_curve!(market, bid_range)
+maximum_pq_curve, argmax_pq_curve = findmax(p_curve)
 
 # Let's plot and see how the range profit evaluatiuon went:
 plt_range = plot(collect(range_mul_factor), p_curve,
@@ -99,11 +103,16 @@ plt_comp = deepcopy(plt_range);
 # Nonconvex needs a minimization objective function that only receives the decision vector.
 function profit_function(total_volume)
     global fcalls += 1
-    global visited_volumes[fcalls] = total_volume[1]
+    global visited_volumes[fcalls] = first(total_volume)
     global visited_times[fcalls] = time() - start_time
-    global visited_objective[fcalls] = profit_for_bid!(market, offer_weights .* total_volume[1])
+    global visited_objective[fcalls] = profit_for_bid!(market, offer_weights .* visited_volumes[fcalls])
     return - visited_objective[fcalls]
 end
+
+# Find time to change bids and solve opf
+num_opfs = 10
+opf_time = @elapsed [profit_for_bid!(market, offer_weights) for _ = 1:num_opfs]
+opf_time /= num_opfs
 
 ```
 
@@ -113,11 +122,11 @@ end
 
 # Max Number of Iterations for the solution method (proxy to a time limit at bidding time).
 # ps.: Currently, no option for limiting fcalls.
-maxiter = 50
+maxiter = 30
 global fcalls = 0
-global visited_objective = Array{Float64}(undef, 2 * maxiter)
-global visited_volumes = Array{Float64}(undef, 2 * maxiter)
-global visited_times = Array{Float64}(undef, 2 * maxiter)
+global visited_objective = Array{Float64}(undef, 10 * maxiter)
+global visited_volumes = Array{Float64}(undef, 10 * maxiter)
+global visited_times = Array{Float64}(undef, 10 * maxiter)
 
 # Build Nonconvex optimization model:
 model = Nonconvex.Model()
@@ -128,12 +137,13 @@ add_ineq_constraint!(model, x -> -1) # errors when no inequality is added!
 # Solution Method: Bayesian Optimization
 alg = BayesOptAlg(IpoptAlg())
 options = BayesOptOptions(
-    sub_options = IpoptOptions(),
-    ninit=floor(Int, maxiter / 10),
-    maxiter = maxiter, ftol = 1e-4, ctol = 1e-5, initialize=true, postoptimize=true,
-    kernel=FBMKernel(h=0.53) ∘ ScaleTransform(0.0063),
+    sub_options = IpoptOptions(max_iter = 20, print_level = 0),
+    # ninit=Int(floor(maxiter / 5)),
+    maxiter = maxiter, ftol = 1e-4, ctol = 1e-5, initialize=true, postoptimize=false,
+    kernel= RationalKernel(α=2.27e8) ∘ ScaleTransform(0.01),
     noise=0.001,
-    std_multiple=6.96e7
+    std_multiple=8.67e4,
+    fit_prior=false # not working with custom priors
 )
 
 # Optimize model:
@@ -143,25 +153,43 @@ r_bayes = optimize(model, alg, [max_total_volume / 2]; options = options)
 best_solution = r_bayes.minimizer
 best_profit = -r_bayes.minimum
 
-scatter!(plt_comp, [best_solution; r_bayes.sub_result.minimizer], [best_profit; -r_bayes.sub_result.minimum],
+scatter!(plt_comp, [best_solution], [best_profit],
     label="BayesOpt - OPF Calls:$(fcalls)",
 )
 
 plt_surrogate = deepcopy(plt_range);
 
-plot!(plt_surrogate, range_mul_factor, -getproperty.(r_bayes.surrogates[1].(range_mul_factor), :lo),
+up_surrugate = -getproperty.(r_bayes.surrogates[1].(range_mul_factor), :lo)
+lb_surrugate = -getproperty.(r_bayes.surrogates[1].(range_mul_factor), :hi)
+std_surrugate = (up_surrugate .- lb_surrugate) / 2
+med_surrugate = lb_surrugate + std_surrugate
+
+visited_times = visited_times ./ opf_time
+
+plot!(plt_surrogate, range_mul_factor, med_surrugate,
+    ribbon=std_surrugate,
     title="BayesOpt Analysis",
     label="Surrogate Function",
-)
+);
+scatter!(plt_surrogate, visited_volumes[1:fcalls], visited_objective[1:fcalls]; label="Visited")
 ```
 
+```@example Nonconvex
+
+plot(visited_times[1:fcalls], (maximum_pq_curve .- accumulate(max, visited_objective[1:fcalls])) ./ maximum_pq_curve,
+    xlabel="Time (x OPF)",
+    ylabel="Optimality Gap (%)",
+    ylim=(0.0,1.0),
+    legend=false
+)
+```
 ### NLopt - BOBYQA (0-Order)
 
 ```@example Nonconvex
 
 using NonconvexNLopt
 
-maxeval = 4
+maxeval = 50
 global fcalls = 0
 
 # Build Nonconvex optimization model:
