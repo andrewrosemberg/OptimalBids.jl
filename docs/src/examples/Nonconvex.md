@@ -39,6 +39,9 @@ case_file_path = joinpath(DATA_DIR, case_name)
 Downloads.download("https://raw.githubusercontent.com/power-grid-lib/pglib-opf/01681386d084d8bd03b429abcd1ee6966f68b9a3/" * case_name, case_file_path)
 network_data = PowerModels.parse_file(case_file_path)
 
+# Measure maximum load
+max_load = sum(load["pd"] for load in values(network_data["load"])) * network_data["baseMVA"]
+
 # Pretend we are a company constructing a new set of generators in the grid.
 # Choose a percentage of the total number of buses to install the new generators:
 percentage_buses = 0.09
@@ -74,7 +77,7 @@ market = build_market(
 using Random
 rng = MersenneTwister(666)
 offer_weights = rand(rng, num_strategic_buses)
-offer_weights = offer_weights/ sum(offer_weights)
+offer_weights = offer_weights / sum(offer_weights)
 
 # However, the decision maker is allowed to increase all bids evenly:
 min_total_volume = 0.0
@@ -90,10 +93,10 @@ opf_time = @elapsed [profit_for_bid!(market, offer_weights) for _ = 1:num_opfs]
 opf_time /= num_opfs
 
 # Let's plot and see how the range profit evaluatiuon went:
-plt_range = plot(collect(range_mul_factor), p_curve,
+plt_range = plot(collect(range_mul_factor) * 100 / max_load, p_curve,
     label="Range Evaluation",
     ylabel="Profit (\$)",
-    xlabel="Total Volume (MWh)",
+    xlabel="Market Share (% Load)",
     legend=:outertopright,
     left_margin=10mm,
     bottom_margin=10mm,
@@ -148,7 +151,7 @@ for i = 1:num_strategic_buses
     ind_offer[i] = 1.0
     bid_range_individual = [ind_offer .* [i] for i in range_mul_factor]
     p_curve_individual = profit_curve!(market, bid_range_individual)
-    plot!(plt_comp_individual, collect(range_mul_factor), p_curve_individual)
+    plot!(plt_comp_individual, collect(range_mul_factor) * 100 / max_load, p_curve_individual, label="Node $i")
 end
 
 plot(plt_comp_individual)
@@ -188,22 +191,22 @@ r_bayes = optimize(model, alg, offer_weights * 75; options = options)
 best_solution = r_bayes.minimizer
 best_profit = -r_bayes.minimum
 
-scatter!(plt_comp, [sum(best_solution)], [best_profit],
+scatter!(plt_comp, [sum(best_solution)] * 100 / max_load, [best_profit],
     label="Multinode BayesOpt - OPF Calls:$(storage_profit_function.fcalls)",
 )
 
 plt_surrogate = deepcopy(plt_range);
 
-range_mul_factor_multi_node = min_total_volume:1.0:(max_total_volume * 20)
+range_mul_factor_multi_node = min_total_volume:1.0:max_load
 bid_range = [best_solution .* [i / sum(best_solution)] for i in range_mul_factor_multi_node]
 p_curve_multi_node = profit_curve!(market, bid_range)
 
-plot!(plt_surrogate, collect(range_mul_factor_multi_node), p_curve_multi_node; 
+plot!(plt_surrogate, collect(range_mul_factor_multi_node) * 100 / max_load, p_curve_multi_node; 
     label="Multi Node Range Evaluation",
     color="orange"
 );
 
-scatter!(plt_surrogate, storage_profit_function.visited_volumes[1:storage_profit_function.fcalls], 
+scatter!(plt_surrogate, storage_profit_function.visited_volumes[1:storage_profit_function.fcalls] * 100 / max_load, 
     storage_profit_function.visited_objective[1:storage_profit_function.fcalls]; label="Visited",
     color="orange"
 )
@@ -255,7 +258,7 @@ r_bayes = optimize(model, alg, [max_total_volume / 2]; options = options)
 best_solution = r_bayes.minimizer
 best_profit = -r_bayes.minimum
 
-scatter!(plt_comp, [best_solution], [best_profit],
+scatter!(plt_comp, [best_solution] * 100 / max_load, [best_profit],
     label="BayesOpt - OPF Calls:$(storage_profit_function.fcalls)",
 )
 
@@ -268,12 +271,12 @@ med_surrugate = lb_surrugate + std_surrugate
 
 storage_profit_function.visited_times = storage_profit_function.visited_times ./ opf_time
 
-plot!(plt_surrogate, range_mul_factor, med_surrugate,
+plot!(plt_surrogate, range_mul_factor * 100 / max_load, med_surrugate,
     ribbon=std_surrugate,
     title="BayesOpt Analysis",
     label="Surrogate Function",
 );
-scatter!(plt_surrogate, storage_profit_function.visited_volumes[1:storage_profit_function.fcalls], 
+scatter!(plt_surrogate, storage_profit_function.visited_volumes[1:storage_profit_function.fcalls] * 100 / max_load, 
     storage_profit_function.visited_objective[1:storage_profit_function.fcalls]; label="Visited"
 )
 ```
@@ -314,7 +317,7 @@ r = optimize(model, alg, [max_total_volume / 2]; options = options)
 best_solution = r.minimizer
 best_profit = -r.minimum
 
-scatter!(plt_comp, [best_solution], [best_profit],
+scatter!(plt_comp, [best_solution] * 100 / max_load, [best_profit],
     label="NLOpt-$(method) - OPF Calls:$(storage_profit_function.fcalls)",
 );
 
@@ -323,7 +326,7 @@ plt_surrogate = deepcopy(plt_range);
 
 storage_profit_function.visited_times = storage_profit_function.visited_times ./ opf_time
 
-scatter!(plt_surrogate, storage_profit_function.visited_volumes[1:storage_profit_function.fcalls], 
+scatter!(plt_surrogate, storage_profit_function.visited_volumes[1:storage_profit_function.fcalls] * 100 / max_load, 
     storage_profit_function.visited_objective[1:storage_profit_function.fcalls]; label="Visited"
 )
 
@@ -365,7 +368,7 @@ r_hyp = optimize(model, alg, [max_total_volume / 2], options = options)
 best_solution = r_hyp.minimizer
 best_profit = -r_hyp.minimum
 
-scatter!(plt_comp, best_solution, [best_profit],
+scatter!(plt_comp, best_solution * 100 / max_load, [best_profit],
     label="$(method) Offer - OPF Calls:$(storage_profit_function.fcalls)",
 );
 
@@ -373,7 +376,7 @@ plt_visited = deepcopy(plt_range)
 
 storage_profit_function.visited_times = storage_profit_function.visited_times ./ opf_time
 
-scatter!(plt_visited, storage_profit_function.visited_volumes[1:storage_profit_function.fcalls], 
+scatter!(plt_visited, storage_profit_function.visited_volumes[1:storage_profit_function.fcalls] * 100 / max_load, 
     storage_profit_function.visited_objective[1:storage_profit_function.fcalls]; label="Visited"
 )
 
@@ -420,7 +423,7 @@ r = optimize(model, alg, [max_total_volume / 2], options = options)
 best_solution = r.minimizer
 best_profit = -r.minimum
 
-scatter!(plt_comp, [best_solution], [best_profit],
+scatter!(plt_comp, [best_solution] * 100 / max_load, [best_profit],
     label="NLOpt-$(method) - OPF Calls:$(storage_profit_function.fcalls)",
 )
 
@@ -428,7 +431,7 @@ plt_visited = deepcopy(plt_range)
 
 storage_profit_function.visited_times = storage_profit_function.visited_times ./ opf_time
 
-scatter!(plt_visited, storage_profit_function.visited_volumes[1:storage_profit_function.fcalls], 
+scatter!(plt_visited, storage_profit_function.visited_volumes[1:storage_profit_function.fcalls] * 100 / max_load, 
     storage_profit_function.visited_objective[1:storage_profit_function.fcalls]; label="Visited"
 )
 
