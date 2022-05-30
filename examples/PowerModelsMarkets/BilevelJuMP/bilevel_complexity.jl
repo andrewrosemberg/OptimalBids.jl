@@ -14,8 +14,20 @@ using Downloads # To download Test Cases
 # Needed fix for PowerModels interface
 Base.getindex(v::BilevelJuMP.BilevelVariableRef, i::Int64) = v
 
+# ### Case Definition
+cases = Dict(118 => "pglib_opf_case118_ieee.m",
+    5 => "pglib_opf_case5_pjm.m",
+    14 => "pglib_opf_case14_ieee.m",
+    30 => "pglib_opf_case30_ieee.m",
+    73 => "pglib_opf_case73_ieee_rts.m",
+)
+
+time_solve_nlp = Dict()
+time_solve_fortuny = Dict()
+time_solve_sos1 = Dict()
+
 # Read market data from IEEE 118 bus case
-case_name = "pglib_opf_case118_ieee.m"
+case_name = cases[73]
 DATA_DIR = mktempdir()
 case_file_path = joinpath(DATA_DIR, case_name)
 Downloads.download("https://raw.githubusercontent.com/power-grid-lib/pglib-opf/01681386d084d8bd03b429abcd1ee6966f68b9a3/" * case_name, case_file_path)
@@ -32,7 +44,7 @@ bus_indexes = collect(keys(network_data["bus"]))
 num_buses = length(bus_indexes)
 num_strategic_buses = ceil(Int, percentage_buses * num_buses)
 # To avoid any biases let's grab some generators in the middle:
-bus_indexes = bus_indexes[21:(21 + num_strategic_buses - 1)]
+bus_indexes = rand(bus_indexes, num_strategic_buses)
 # Finally, add new generators to the network grid data and collect their reference keys.
 generator_indexes = [
     add_generator(network_data, parse(Int, bus_idx)) for bus_idx in bus_indexes
@@ -48,35 +60,14 @@ market = build_market(
     optimizer_with_attributes(Gurobi.Optimizer, "OutputFlag" => 0),
 )
 
-# Relative distribution of offers are sometimes predefined and cannot be changed at bidding time.
-using Random
-rng = MersenneTwister(666)
-offer_weights = rand(rng, num_strategic_buses)
-offer_weights = offer_weights/ sum(offer_weights)
-
-# However, the decision maker is allowed to increase all bids evenly:
 min_total_volume = 0.0
 max_total_volume = 655.0
 range_mul_factor = min_total_volume:1.0:max_total_volume
-bid_range = [offer_weights .* [i] for i in range_mul_factor]
-p_curve = profit_curve!(market, bid_range)
-
-# Let's plot and see how the range profit evaluatiuon went:
-plt_range = plot(collect(range_mul_factor), p_curve,
-    label="Range Evaluation",
-    ylabel="Profit (\$)",
-    xlabel="Total Volume",
-    legend=:outertopright,
-    left_margin=10mm,
-    bottom_margin=10mm,
-    size=(900, 600)
-);
-plt_comp = deepcopy(plt_range);
 
 # ### Bilevel NLP
 
 # Make sure max bids are at their maximum
-max_generations = offer_weights .* max_total_volume
+max_generations = rand(num_strategic_buses) * max_total_volume
 change_bids!(market, max_generations)
 
 # optimize
@@ -98,27 +89,12 @@ gS = [var(pm, 0, :pg, parse(Int64, generator_indexes[i])) for i = 1:num_strategi
 
 @objective(Upper(model), Max, - lambda'gS)
 
-@elapsed optimize!(model)
-
-# Final simulation
-nlp_bids = value.(qS)
-nlp_profit = profit_for_bid!(market, nlp_bids)
-
-bid_range_nlp = [nlp_bids .* [i] for i in 0.1:0.1:10]
-p_curve_nlp = profit_curve!(market, bid_range_nlp)
-plot!(plt_comp, sum.(bid_range_nlp), p_curve_nlp,
-    label="Range Evaluation - NLP",
-    color="purple"
-);
-scatter!(plt_comp, [sum(nlp_bids)], [nlp_profit],
-    label="Bilevel Solution - NLP",
-    color="purple"
-)
+time_solve_nlp[num_buses] = @elapsed optimize!(model)
 
 # ### Bilevel Fortuny
 
 # Make sure max bids are at their maximum
-max_generations = offer_weights .* max_total_volume
+max_generations = rand(num_strategic_buses) * max_total_volume
 change_bids!(market, max_generations)
 
 # optimize
@@ -142,27 +118,12 @@ gS = [var(pm, 0, :pg, parse(Int64, generator_indexes[i])) for i = 1:num_strategi
 
 @objective(Upper(model), Max, - lambda'gS)
 
-@elapsed optimize!(model)
-
-# Final simulation
-fortuny_bids = value.(qS)
-fortuny_profit = profit_for_bid!(market, fortuny_bids)
-
-bid_range_fortuny = [fortuny_bids .* [i] for i in 0.1:0.1:10]
-p_curve_fortuny = profit_curve!(market, bid_range_fortuny)
-plot!(plt_comp, sum.(bid_range_fortuny), p_curve_fortuny,
-    label="Range Evaluation - Fortuny",
-    color="green"
-);
-scatter!(plt_comp, [sum(fortuny_bids)], [fortuny_profit],
-    label="Bilevel Solution - Fortuny",
-    color="green"
-)
+time_solve_fortuny[num_buses] = @elapsed optimize!(model)
 
 # ### Bilevel SOS
 
 # Make sure max bids are at their maximum
-max_generations = offer_weights .* max_total_volume
+max_generations = rand(num_strategic_buses) * max_total_volume
 change_bids!(market, max_generations)
 
 # optimize
@@ -185,19 +146,4 @@ gS = [var(pm, 0, :pg, parse(Int64, generator_indexes[i])) for i = 1:num_strategi
 
 @objective(Upper(model), Max, - lambda'gS)
 
-@elapsed optimize!(model)
-
-# Final simulation
-SOS_bids = value.(qS)
-SOS_profit = profit_for_bid!(market, SOS_bids)
-
-bid_range_SOS = [SOS_bids .* [i] for i in 0.1:0.1:10]
-p_curve_SOS = profit_curve!(market, bid_range_SOS)
-plot!(plt_comp, sum.(bid_range_SOS), p_curve_SOS,
-    label="Range Evaluation - SOS",
-    color="red"
-);
-scatter!(plt_comp, [sum(SOS_bids)], [SOS_profit],
-    label="Bilevel Solution - SOS",
-    color="red"
-)
+time_solve_sos1[num_buses] = @elapsed optimize!(model)

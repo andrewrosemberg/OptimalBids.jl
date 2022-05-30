@@ -20,7 +20,8 @@ export PowerModelsMarket,
     clear_market!,
     calculate_profit,
     add_generator,
-    profit_and_gradient_for_bid!
+    profit_and_gradient_for_bid!,
+    instantiate_model
 
 Reexport.@reexport using PowerModels
 
