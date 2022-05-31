@@ -16,11 +16,12 @@ using Downloads # To download Test Cases
 Base.getindex(v::BilevelJuMP.BilevelVariableRef, i::Int64) = v
 
 # ### Case Definition
-cases = Dict(118 => "pglib_opf_case118_ieee.m",
+cases = Dict(
     5 => "pglib_opf_case5_pjm.m",
     14 => "pglib_opf_case14_ieee.m",
     30 => "pglib_opf_case30_ieee.m",
-    73 => "pglib_opf_case73_ieee_rts.m",
+    # 73 => "pglib_opf_case73_ieee_rts.m",
+    # 118 => "pglib_opf_case118_ieee.m",
 )
 
 time_solve = DenseAxisArray(zeros(length(keys(cases)), 3), collect(keys(cases)), [:NLP, :FORTUNY, :SOS1])
@@ -78,7 +79,7 @@ for case_name in values(cases)
         mode = BilevelJuMP.ProductMode(1e-5)
     )
 
-    @variable(Upper(model), 0 <= qS[i=1:num_strategic_buses] <= max_generations[i], start = 2.0) # if `start=0.1` => false NLP infeastible
+    @variable(Upper(model), 0 <= qS[i=1:num_strategic_buses] <= max_generations[i], start = 0.1) # if `start=0.1` => false NLP infeastible
 
     @constraint(Upper(model), sum(qS) <= max_total_volume)
 
