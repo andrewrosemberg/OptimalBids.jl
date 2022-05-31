@@ -22,7 +22,7 @@ cases = Dict(
     # 14 => "pglib_opf_case14_ieee.m",
     30 => "pglib_opf_case30_ieee.m",
     # 73 => "pglib_opf_case73_ieee_rts.m",
-    # 118 => "pglib_opf_case118_ieee.m",
+    118 => "pglib_opf_case118_ieee.m",
 )
 
 time_solve = DenseAxisArray(zeros(length(keys(cases)), 3), collect(keys(cases)), [:NLP, :FORTUNY, :SOS1])
