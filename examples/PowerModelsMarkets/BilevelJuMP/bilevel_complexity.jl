@@ -34,6 +34,7 @@ env = Gurobi.Env()
 for case_name in values(cases)
     case_file_path = joinpath(DATA_DIR, case_name)
     if !isfile(case_file_path)
+        case_file_path = joinpath(DATA_DIR, case_name)
         Downloads.download("https://raw.githubusercontent.com/power-grid-lib/pglib-opf/01681386d084d8bd03b429abcd1ee6966f68b9a3/" * case_name, case_file_path)
     end
     network_data = PowerModels.parse_file(case_file_path)
