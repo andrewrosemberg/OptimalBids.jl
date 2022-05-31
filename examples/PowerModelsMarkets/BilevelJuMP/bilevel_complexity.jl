@@ -73,7 +73,7 @@ for case_name in values(cases)
     # ### Bilevel NLP
 
     # Make sure max bids are at their maximum
-    max_generations = rand(num_strategic_buses) * max_total_volume
+    max_generations = ones(num_strategic_buses) * max_total_volume
     change_bids!(market, max_generations)
 
     # optimize
@@ -102,7 +102,7 @@ for case_name in values(cases)
     # ### Bilevel Fortuny
 
     # Make sure max bids are at their maximum
-    max_generations = rand(num_strategic_buses) * max_total_volume
+    max_generations = ones(num_strategic_buses) * max_total_volume
     change_bids!(market, max_generations)
 
     # optimize
@@ -132,7 +132,7 @@ for case_name in values(cases)
     # ### Bilevel SOS
 
     # Make sure max bids are at their maximum
-    max_generations = rand(num_strategic_buses) * max_total_volume
+    max_generations = ones(num_strategic_buses) * max_total_volume
     change_bids!(market, max_generations)
 
     # optimize
