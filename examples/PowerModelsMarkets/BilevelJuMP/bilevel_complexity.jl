@@ -30,6 +30,7 @@ obj_val = DenseAxisArray(zeros(length(keys(cases)), 3), collect(keys(cases)), [:
 # Read market data from IEEE 118 bus case
 DATA_DIR = mktempdir()
 env = Gurobi.Env()
+rng = MersenneTwister(666)
 
 for case_name in values(cases)
     case_file_path = joinpath(DATA_DIR, case_name)
@@ -50,7 +51,7 @@ for case_name in values(cases)
     num_buses = length(bus_indexes)
     num_strategic_buses = ceil(Int, percentage_buses * num_buses)
     # To avoid any biases let's grab some generators in the middle:
-    bus_indexes = rand(bus_indexes, num_strategic_buses)
+    bus_indexes = rand(rng, bus_indexes, num_strategic_buses)
     # Finally, add new generators to the network grid data and collect their reference keys.
     generator_indexes = [
         add_generator(network_data, parse(Int, bus_idx)) for bus_idx in bus_indexes
