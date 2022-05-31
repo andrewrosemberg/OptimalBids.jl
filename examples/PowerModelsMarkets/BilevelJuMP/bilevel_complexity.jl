@@ -1,6 +1,7 @@
 using OptimalBids
 using OptimalBids.PowerModelsMarkets
 using JuMP
+using JuMP.Containers
 
 using BilevelJuMP
 using Ipopt
@@ -22,12 +23,11 @@ cases = Dict(118 => "pglib_opf_case118_ieee.m",
     73 => "pglib_opf_case73_ieee_rts.m",
 )
 
-time_solve_nlp = Dict()
-time_solve_fortuny = Dict()
-time_solve_sos1 = Dict()
+time_solve = DenseAxisArray(zeros(length(keys(cases)), 3), collect(keys(cases)), [:NLP, :FORTUNY, :SOS1])
 
 # Read market data from IEEE 118 bus case
 DATA_DIR = mktempdir()
+env = Gurobi.Env()
 
 for case_name in values(cases)
     case_file_path = joinpath(DATA_DIR, case_name)
@@ -60,7 +60,7 @@ for case_name in values(cases)
         PowerModelsMarket,
         network_data,
         generator_indexes,
-        optimizer_with_attributes(Gurobi.Optimizer, "OutputFlag" => 0),
+        optimizer_with_attributes(() -> Gurobi.Optimizer(env), "OutputFlag" => 0),
     )
 
     min_total_volume = 0.0
@@ -92,7 +92,7 @@ for case_name in values(cases)
 
     @objective(Upper(model), Max, - lambda'gS)
 
-    time_solve_nlp[num_buses] = @elapsed optimize!(model)
+    time_solve[num_buses, :NLP] = @elapsed optimize!(model)
 
     # ### Bilevel Fortuny
 
@@ -101,7 +101,7 @@ for case_name in values(cases)
     change_bids!(market, max_generations)
 
     # optimize
-    opt = QuadraticToBinary.Optimizer{Float64}(MOI.instantiate(optimizer_with_attributes(Gurobi.Optimizer, "MIPGap" => 0.2)))
+    opt = QuadraticToBinary.Optimizer{Float64}(MOI.instantiate(optimizer_with_attributes(() -> Gurobi.Optimizer(env), "MIPGap" => 0.2)))
     model = BilevelModel(() -> opt, 
         mode = BilevelJuMP.FortunyAmatMcCarlMode(primal_big_M = 10000, dual_big_M = 10000)
     )
@@ -121,7 +121,7 @@ for case_name in values(cases)
 
     @objective(Upper(model), Max, - lambda'gS)
 
-    time_solve_fortuny[num_buses] = @elapsed optimize!(model)
+    time_solve[num_buses, :FORTUNY] = @elapsed optimize!(model)
 
     # ### Bilevel SOS
 
@@ -130,7 +130,7 @@ for case_name in values(cases)
     change_bids!(market, max_generations)
 
     # optimize
-    opt = QuadraticToBinary.Optimizer{Float64}(MOI.instantiate(optimizer_with_attributes(Gurobi.Optimizer, "MIPGap" => 0.2)))
+    opt = QuadraticToBinary.Optimizer{Float64}(MOI.instantiate(optimizer_with_attributes(() -> Gurobi.Optimizer(env), "MIPGap" => 0.2)))
     model = BilevelModel(() -> opt, 
         mode = BilevelJuMP.SOS1Mode()
     )
@@ -149,5 +149,7 @@ for case_name in values(cases)
 
     @objective(Upper(model), Max, - lambda'gS)
 
-    time_solve_sos1[num_buses] = @elapsed optimize!(model)
+    time_solve[num_buses, :SOS1] = @elapsed optimize!(model)
+
+    println(time_solve)
 end
