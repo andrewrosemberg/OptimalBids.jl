@@ -20,7 +20,7 @@ cases = Dict(
     5 => "pglib_opf_case5_pjm.m",
     14 => "pglib_opf_case14_ieee.m",
     30 => "pglib_opf_case30_ieee.m",
-    73 => "pglib_opf_case73_ieee_rts.m",
+    # 73 => "pglib_opf_case73_ieee_rts.m",
     # 118 => "pglib_opf_case118_ieee.m",
 )
 
@@ -77,7 +77,7 @@ for case_name in values(cases)
     change_bids!(market, max_generations)
 
     # optimize
-    model = BilevelModel(Ipopt.Optimizer, 
+    model = BilevelModel(optimizer_with_attributes(Ipopt.Optimizer, "print_level" => 0), 
         mode = BilevelJuMP.ProductMode(1e-5)
     )
 
