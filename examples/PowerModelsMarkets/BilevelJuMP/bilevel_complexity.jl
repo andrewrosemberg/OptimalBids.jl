@@ -101,8 +101,6 @@ for case_name in values(cases)
 
     obj_val[num_buses, :NLP] = profit_for_bid!(market, value.(qS))
 
-    finalize(backend(model).optimizer.model)
-
     # ### Bilevel Fortuny
 
     # Make sure max bids are at their maximum
