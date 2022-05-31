@@ -27,123 +27,127 @@ time_solve_fortuny = Dict()
 time_solve_sos1 = Dict()
 
 # Read market data from IEEE 118 bus case
-case_name = cases[73]
 DATA_DIR = mktempdir()
-case_file_path = joinpath(DATA_DIR, case_name)
-Downloads.download("https://raw.githubusercontent.com/power-grid-lib/pglib-opf/01681386d084d8bd03b429abcd1ee6966f68b9a3/" * case_name, case_file_path)
-network_data = PowerModels.parse_file(case_file_path)
 
-# Pretend we are a company constructing a new set of generators in the grid.
-# Choose a percentage of the total number of buses to install the new generators:
-percentage_buses = 0.09
+for case_name in values(cases)
+    case_file_path = joinpath(DATA_DIR, case_name)
+    if !isfile(case_file_path)
+        Downloads.download("https://raw.githubusercontent.com/power-grid-lib/pglib-opf/01681386d084d8bd03b429abcd1ee6966f68b9a3/" * case_name, case_file_path)
+    end
+    network_data = PowerModels.parse_file(case_file_path)
 
-# We need the keys PowerModels uses to reference the appropriate buses in it's network data dictionary.
-# First, find out all available keys:
-bus_indexes = collect(keys(network_data["bus"]))
-# Then, calculate number of buses that consitute the chose percent (`percentage_buses`):
-num_buses = length(bus_indexes)
-num_strategic_buses = ceil(Int, percentage_buses * num_buses)
-# To avoid any biases let's grab some generators in the middle:
-bus_indexes = rand(bus_indexes, num_strategic_buses)
-# Finally, add new generators to the network grid data and collect their reference keys.
-generator_indexes = [
-    add_generator(network_data, parse(Int, bus_idx)) for bus_idx in bus_indexes
-]
+    # Pretend we are a company constructing a new set of generators in the grid.
+    # Choose a percentage of the total number of buses to install the new generators:
+    percentage_buses = 0.09
 
-# ### OptimalBids API
+    # We need the keys PowerModels uses to reference the appropriate buses in it's network data dictionary.
+    # First, find out all available keys:
+    bus_indexes = collect(keys(network_data["bus"]))
+    # Then, calculate number of buses that consitute the chose percent (`percentage_buses`):
+    num_buses = length(bus_indexes)
+    num_strategic_buses = ceil(Int, percentage_buses * num_buses)
+    # To avoid any biases let's grab some generators in the middle:
+    bus_indexes = rand(bus_indexes, num_strategic_buses)
+    # Finally, add new generators to the network grid data and collect their reference keys.
+    generator_indexes = [
+        add_generator(network_data, parse(Int, bus_idx)) for bus_idx in bus_indexes
+    ]
 
-# Define market
-market = build_market(
-    PowerModelsMarket,
-    network_data,
-    generator_indexes,
-    optimizer_with_attributes(Gurobi.Optimizer, "OutputFlag" => 0),
-)
+    # ### OptimalBids API
 
-min_total_volume = 0.0
-max_total_volume = 655.0
-range_mul_factor = min_total_volume:1.0:max_total_volume
+    # Define market
+    market = build_market(
+        PowerModelsMarket,
+        network_data,
+        generator_indexes,
+        optimizer_with_attributes(Gurobi.Optimizer, "OutputFlag" => 0),
+    )
 
-# ### Bilevel NLP
+    min_total_volume = 0.0
+    max_total_volume = 655.0
+    range_mul_factor = min_total_volume:1.0:max_total_volume
 
-# Make sure max bids are at their maximum
-max_generations = rand(num_strategic_buses) * max_total_volume
-change_bids!(market, max_generations)
+    # ### Bilevel NLP
 
-# optimize
-model = BilevelModel(Ipopt.Optimizer, 
-    mode = BilevelJuMP.ProductMode(1e-5)
-)
+    # Make sure max bids are at their maximum
+    max_generations = rand(num_strategic_buses) * max_total_volume
+    change_bids!(market, max_generations)
 
-@variable(Upper(model), 0 <= qS[i=1:num_strategic_buses] <= max_generations[i], start = 2.0) # if `start=0.1` => false NLP infeastible
+    # optimize
+    model = BilevelModel(Ipopt.Optimizer, 
+        mode = BilevelJuMP.ProductMode(1e-5)
+    )
 
-@constraint(Upper(model), sum(qS) <= max_total_volume)
+    @variable(Upper(model), 0 <= qS[i=1:num_strategic_buses] <= max_generations[i], start = 2.0) # if `start=0.1` => false NLP infeastible
 
-pm = instantiate_model(market; jump_model=Lower(model))
+    @constraint(Upper(model), sum(qS) <= max_total_volume)
 
-@variable(Upper(model), -10_000 <= lambda[i=1:num_strategic_buses] <= 10_000, DualOf(sol(pm, 0, :bus, parse(Int64, bus_indexes[i]))[:lam_kcl_r]), start = 1)
+    pm = instantiate_model(market; jump_model=Lower(model))
 
-gS = [var(pm, 0, :pg, parse(Int64, generator_indexes[i])) for i = 1:num_strategic_buses]
+    @variable(Upper(model), -10_000 <= lambda[i=1:num_strategic_buses] <= 10_000, DualOf(sol(pm, 0, :bus, parse(Int64, bus_indexes[i]))[:lam_kcl_r]), start = 1)
 
-@constraint(Lower(model), gS .<= qS)
+    gS = [var(pm, 0, :pg, parse(Int64, generator_indexes[i])) for i = 1:num_strategic_buses]
 
-@objective(Upper(model), Max, - lambda'gS)
+    @constraint(Lower(model), gS .<= qS)
 
-time_solve_nlp[num_buses] = @elapsed optimize!(model)
+    @objective(Upper(model), Max, - lambda'gS)
 
-# ### Bilevel Fortuny
+    time_solve_nlp[num_buses] = @elapsed optimize!(model)
 
-# Make sure max bids are at their maximum
-max_generations = rand(num_strategic_buses) * max_total_volume
-change_bids!(market, max_generations)
+    # ### Bilevel Fortuny
 
-# optimize
-opt = QuadraticToBinary.Optimizer{Float64}(MOI.instantiate(optimizer_with_attributes(Gurobi.Optimizer, "MIPGap" => 0.2)))
-model = BilevelModel(() -> opt, 
-    mode = BilevelJuMP.FortunyAmatMcCarlMode(primal_big_M = 10000, dual_big_M = 10000)
-)
+    # Make sure max bids are at their maximum
+    max_generations = rand(num_strategic_buses) * max_total_volume
+    change_bids!(market, max_generations)
+
+    # optimize
+    opt = QuadraticToBinary.Optimizer{Float64}(MOI.instantiate(optimizer_with_attributes(Gurobi.Optimizer, "MIPGap" => 0.2)))
+    model = BilevelModel(() -> opt, 
+        mode = BilevelJuMP.FortunyAmatMcCarlMode(primal_big_M = 10000, dual_big_M = 10000)
+    )
 
 
-@variable(Upper(model), 0 <= qS[i=1:num_strategic_buses] <= max_generations[i], start = 0.005)
+    @variable(Upper(model), 0 <= qS[i=1:num_strategic_buses] <= max_generations[i], start = 0.005)
 
-@constraint(Upper(model), sum(qS) <= max_total_volume)
+    @constraint(Upper(model), sum(qS) <= max_total_volume)
 
-pm = instantiate_model(market; jump_model=Lower(model))
+    pm = instantiate_model(market; jump_model=Lower(model))
 
-@variable(Upper(model), -10_000 <= lambda[i=1:num_strategic_buses] <= 10_000, DualOf(sol(pm, 0, :bus, parse(Int64, bus_indexes[i]))[:lam_kcl_r]), start = 1_000)
+    @variable(Upper(model), -10_000 <= lambda[i=1:num_strategic_buses] <= 10_000, DualOf(sol(pm, 0, :bus, parse(Int64, bus_indexes[i]))[:lam_kcl_r]), start = 1_000)
 
-gS = [var(pm, 0, :pg, parse(Int64, generator_indexes[i])) for i = 1:num_strategic_buses]
+    gS = [var(pm, 0, :pg, parse(Int64, generator_indexes[i])) for i = 1:num_strategic_buses]
 
-@constraint(Lower(model), gS .<= qS)
+    @constraint(Lower(model), gS .<= qS)
 
-@objective(Upper(model), Max, - lambda'gS)
+    @objective(Upper(model), Max, - lambda'gS)
 
-time_solve_fortuny[num_buses] = @elapsed optimize!(model)
+    time_solve_fortuny[num_buses] = @elapsed optimize!(model)
 
-# ### Bilevel SOS
+    # ### Bilevel SOS
 
-# Make sure max bids are at their maximum
-max_generations = rand(num_strategic_buses) * max_total_volume
-change_bids!(market, max_generations)
+    # Make sure max bids are at their maximum
+    max_generations = rand(num_strategic_buses) * max_total_volume
+    change_bids!(market, max_generations)
 
-# optimize
-opt = QuadraticToBinary.Optimizer{Float64}(MOI.instantiate(optimizer_with_attributes(Gurobi.Optimizer, "MIPGap" => 0.2)))
-model = BilevelModel(() -> opt, 
-    mode = BilevelJuMP.SOS1Mode()
-)
+    # optimize
+    opt = QuadraticToBinary.Optimizer{Float64}(MOI.instantiate(optimizer_with_attributes(Gurobi.Optimizer, "MIPGap" => 0.2)))
+    model = BilevelModel(() -> opt, 
+        mode = BilevelJuMP.SOS1Mode()
+    )
 
-@variable(Upper(model), 0 <= qS[i=1:num_strategic_buses] <= max_generations[i], start = 0.05)
+    @variable(Upper(model), 0 <= qS[i=1:num_strategic_buses] <= max_generations[i], start = 0.05)
 
-@constraint(Upper(model), sum(qS) <= max_total_volume)
+    @constraint(Upper(model), sum(qS) <= max_total_volume)
 
-pm = instantiate_model(market; jump_model=Lower(model))
+    pm = instantiate_model(market; jump_model=Lower(model))
 
-@variable(Upper(model), -10_000 <= lambda[i=1:num_strategic_buses] <= 10_000, DualOf(sol(pm, 0, :bus, parse(Int64, bus_indexes[i]))[:lam_kcl_r]), start = 1_000)
+    @variable(Upper(model), -10_000 <= lambda[i=1:num_strategic_buses] <= 10_000, DualOf(sol(pm, 0, :bus, parse(Int64, bus_indexes[i]))[:lam_kcl_r]), start = 1_000)
 
-gS = [var(pm, 0, :pg, parse(Int64, generator_indexes[i])) for i = 1:num_strategic_buses]
+    gS = [var(pm, 0, :pg, parse(Int64, generator_indexes[i])) for i = 1:num_strategic_buses]
 
-@constraint(Lower(model), gS .<= qS)
+    @constraint(Lower(model), gS .<= qS)
 
-@objective(Upper(model), Max, - lambda'gS)
+    @objective(Upper(model), Max, - lambda'gS)
 
-time_solve_sos1[num_buses] = @elapsed optimize!(model)
+    time_solve_sos1[num_buses] = @elapsed optimize!(model)
+end
