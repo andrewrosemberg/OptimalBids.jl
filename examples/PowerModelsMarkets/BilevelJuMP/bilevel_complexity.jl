@@ -11,6 +11,7 @@ using QuadraticToBinary
 using Plots # For some evaluation plots at the end
 using Plots.PlotMeasures
 using Downloads # To download Test Cases
+using Random
 
 # Needed fix for PowerModels interface
 Base.getindex(v::BilevelJuMP.BilevelVariableRef, i::Int64) = v
