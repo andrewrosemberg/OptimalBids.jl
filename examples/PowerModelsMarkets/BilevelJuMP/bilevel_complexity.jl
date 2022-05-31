@@ -165,3 +165,5 @@ for case_name in values(cases)
     println("OBJ VALUE")
     println(obj_val)
 end
+
+finalize(env)
