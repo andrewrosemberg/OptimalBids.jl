@@ -25,6 +25,7 @@ cases = Dict(
 )
 
 time_solve = DenseAxisArray(zeros(length(keys(cases)), 3), collect(keys(cases)), [:NLP, :FORTUNY, :SOS1])
+obj_val = DenseAxisArray(zeros(length(keys(cases)), 3), collect(keys(cases)), [:NLP, :FORTUNY, :SOS1])
 
 # Read market data from IEEE 118 bus case
 DATA_DIR = mktempdir()
@@ -95,6 +96,8 @@ for case_name in values(cases)
 
     time_solve[num_buses, :NLP] = @elapsed optimize!(model)
 
+    obj_val[num_buses, :NLP] = profit_for_bid!(market, value.(qS))
+
     # ### Bilevel Fortuny
 
     # Make sure max bids are at their maximum
@@ -102,7 +105,7 @@ for case_name in values(cases)
     change_bids!(market, max_generations)
 
     # optimize
-    opt = QuadraticToBinary.Optimizer{Float64}(MOI.instantiate(optimizer_with_attributes(() -> Gurobi.Optimizer(env), "MIPGap" => 0.2)))
+    opt = QuadraticToBinary.Optimizer{Float64}(MOI.instantiate(optimizer_with_attributes(() -> Gurobi.Optimizer(env), "MIPGap" => 0.05)))
     model = BilevelModel(() -> opt, 
         mode = BilevelJuMP.FortunyAmatMcCarlMode(primal_big_M = 10000, dual_big_M = 10000)
     )
@@ -123,6 +126,7 @@ for case_name in values(cases)
     @objective(Upper(model), Max, - lambda'gS)
 
     time_solve[num_buses, :FORTUNY] = @elapsed optimize!(model)
+    obj_val[num_buses, :FORTUNY] = profit_for_bid!(market, value.(qS))
 
     # ### Bilevel SOS
 
@@ -131,7 +135,7 @@ for case_name in values(cases)
     change_bids!(market, max_generations)
 
     # optimize
-    opt = QuadraticToBinary.Optimizer{Float64}(MOI.instantiate(optimizer_with_attributes(() -> Gurobi.Optimizer(env), "MIPGap" => 0.2)))
+    opt = QuadraticToBinary.Optimizer{Float64}(MOI.instantiate(optimizer_with_attributes(() -> Gurobi.Optimizer(env), "MIPGap" => 0.05)))
     model = BilevelModel(() -> opt, 
         mode = BilevelJuMP.SOS1Mode()
     )
@@ -151,6 +155,10 @@ for case_name in values(cases)
     @objective(Upper(model), Max, - lambda'gS)
 
     time_solve[num_buses, :SOS1] = @elapsed optimize!(model)
+    obj_val[num_buses, :SOS1] = profit_for_bid!(market, value.(qS))
 
+    println("SOLVE TIME")
     println(time_solve)
+    println("OBJ VALUE")
+    println(obj_val)
 end
