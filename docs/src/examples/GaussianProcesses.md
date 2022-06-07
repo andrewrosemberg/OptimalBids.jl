@@ -41,6 +41,9 @@ case_file_path = joinpath(DATA_DIR, case_name)
 Downloads.download("https://raw.githubusercontent.com/power-grid-lib/pglib-opf/01681386d084d8bd03b429abcd1ee6966f68b9a3/" * case_name, case_file_path)
 network_data = PowerModels.parse_file(case_file_path)
 
+# Measure maximum load
+max_load = sum(load["pd"] for load in values(network_data["load"])) * network_data["baseMVA"]
+
 # Pretend we are a company constructing a new set of generators in the grid.
 # Choose a percentage of the total number of buses to install the new generators:
 percentage_buses = 0.09
@@ -144,17 +147,19 @@ idx = [1; rand(2:size(range_mul_factor,1), number_samples)]
 x = collect(range_mul_factor)[idx]
 y = p_curve[idx]
 
-plt_comp = plot(collect(range_mul_factor), p_curve,
+plt_comp = plot(collect(range_mul_factor) * 100 / max_load, p_curve,
     label="Range Evaluation",
-    ylabel="Profit (\$)",
-    xlabel="Multiplicative Factor",
+    ylabel="Profit (USD)",
+    size=(900, 600), 
+    title="Kernel Comparison", 
+    xlabel="Bid Volume (% Market Share)",
     legend=:outertopright,
     color="black",
     width=3,
     left_margin=10mm,
     bottom_margin=10mm,
 );
-scatter!(plt_comp, x, y; label="Data");
+scatter!(plt_comp, x .* 100 ./ max_load, y; label="Data");
 
 plt_comp
 ```
@@ -200,7 +205,7 @@ fx = f(x, 0.001)
 p_fx = posterior(fx, y)
 
 # Plot posterior.
-plot!(plt_comp, range_mul_factor, p_fx; label="Posterior - " * string(Matern32Kernel))
+plot!(plt_comp, collect(range_mul_factor) * 100 / max_load, p_fx(collect(range_mul_factor))(collect(range_mul_factor)); label="Posterior - " * string(Matern32Kernel))
 ```
 
 
@@ -246,7 +251,7 @@ fx = f(x, 0.001)
 p_fx = posterior(fx, y)
 
 # Plot posterior.
-plot!(plt_comp, range_mul_factor, p_fx; label="Posterior - " * string(RationalKernel))
+plot!(plt_comp, collect(range_mul_factor) * 100 / max_load, p_fx(collect(range_mul_factor)); label="Posterior - " * string(RationalKernel))
 ```
 
 ### FBMKernel
@@ -291,5 +296,5 @@ fx = f(x, 0.001)
 p_fx = posterior(fx, y)
 
 # Plot posterior.
-plot!(plt_comp, range_mul_factor, p_fx; label="Posterior - " * string(FBMKernel))
+plot!(plt_comp, collect(range_mul_factor) * 100 / max_load, p_fx(collect(range_mul_factor)); label="Posterior - " * string(FBMKernel))
 ```

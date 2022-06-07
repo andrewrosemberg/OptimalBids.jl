@@ -7,6 +7,7 @@ using BilevelJuMP
 using Ipopt
 using Gurobi
 using QuadraticToBinary
+using PowerModels
 
 using Plots # For some evaluation plots at the end
 using Plots.PlotMeasures
@@ -18,10 +19,9 @@ Base.getindex(v::BilevelJuMP.BilevelVariableRef, i::Int64) = v
 
 # ### Case Definition
 cases = Dict(
-    5 => "pglib_opf_case5_pjm.m",
-    # 14 => "pglib_opf_case14_ieee.m",
-    30 => "pglib_opf_case30_ieee.m",
-    # 73 => "pglib_opf_case73_ieee_rts.m",
+    # 5 => "pglib_opf_case5_pjm.m",
+    # 30 => "pglib_opf_case30_ieee.m",
+    # 60 => "pglib_opf_case60_c.m",
     118 => "pglib_opf_case118_ieee.m",
 )
 
@@ -91,7 +91,7 @@ for case_name in values(cases)
 
     @variable(Upper(model), -10_000 <= lambda[i=1:num_strategic_buses] <= 10_000, DualOf(sol(pm, 0, :bus, parse(Int64, bus_indexes[i]))[:lam_kcl_r]), start = 1)
 
-    gS = [var(pm, 0, :pg, parse(Int64, generator_indexes[i])) for i = 1:num_strategic_buses]
+    gS = [PowerModels.var(pm, 0, :pg, parse(Int64, generator_indexes[i])) for i = 1:num_strategic_buses]
 
     @constraint(Lower(model), gS .<= qS)
 
@@ -101,64 +101,64 @@ for case_name in values(cases)
 
     obj_val[num_buses, :NLP] = profit_for_bid!(market, value.(qS))
 
-    # ### Bilevel Fortuny
+    # # ### Bilevel Fortuny
 
-    # Make sure max bids are at their maximum
-    max_generations = ones(num_strategic_buses) * max_total_volume
-    change_bids!(market, max_generations)
+    # # Make sure max bids are at their maximum
+    # max_generations = ones(num_strategic_buses) * max_total_volume
+    # change_bids!(market, max_generations)
 
-    # optimize
-    opt = QuadraticToBinary.Optimizer{Float64}(MOI.instantiate(optimizer_with_attributes(() -> Gurobi.Optimizer(env), "MIPGap" => 0.05)))
-    model = BilevelModel(() -> opt, 
-        mode = BilevelJuMP.FortunyAmatMcCarlMode(primal_big_M = 10000, dual_big_M = 10000)
-    )
+    # # optimize
+    # opt = QuadraticToBinary.Optimizer{Float64}(MOI.instantiate(optimizer_with_attributes(() -> Gurobi.Optimizer(env), "MIPGap" => 0.05)))
+    # model = BilevelModel(() -> opt, 
+    #     mode = BilevelJuMP.FortunyAmatMcCarlMode(primal_big_M = 10000, dual_big_M = 10000)
+    # )
 
 
-    @variable(Upper(model), 0 <= qS[i=1:num_strategic_buses] <= max_generations[i], start = 0.005)
+    # @variable(Upper(model), 0 <= qS[i=1:num_strategic_buses] <= max_generations[i], start = 0.005)
 
-    @constraint(Upper(model), sum(qS) <= max_total_volume)
+    # @constraint(Upper(model), sum(qS) <= max_total_volume)
 
-    pm = instantiate_model(market; jump_model=Lower(model))
+    # pm = instantiate_model(market; jump_model=Lower(model))
 
-    @variable(Upper(model), -10_000 <= lambda[i=1:num_strategic_buses] <= 10_000, DualOf(sol(pm, 0, :bus, parse(Int64, bus_indexes[i]))[:lam_kcl_r]), start = 1_000)
+    # @variable(Upper(model), -10_000 <= lambda[i=1:num_strategic_buses] <= 10_000, DualOf(sol(pm, 0, :bus, parse(Int64, bus_indexes[i]))[:lam_kcl_r]), start = 1_000)
 
-    gS = [var(pm, 0, :pg, parse(Int64, generator_indexes[i])) for i = 1:num_strategic_buses]
+    # gS = [PowerModels.var(pm, 0, :pg, parse(Int64, generator_indexes[i])) for i = 1:num_strategic_buses]
 
-    @constraint(Lower(model), gS .<= qS)
+    # @constraint(Lower(model), gS .<= qS)
 
-    @objective(Upper(model), Max, - lambda'gS)
+    # @objective(Upper(model), Max, - lambda'gS)
 
-    time_solve[num_buses, :FORTUNY] = @elapsed optimize!(model)
-    obj_val[num_buses, :FORTUNY] = profit_for_bid!(market, value.(qS))
+    # time_solve[num_buses, :FORTUNY] = @elapsed optimize!(model)
+    # obj_val[num_buses, :FORTUNY] = profit_for_bid!(market, value.(qS))
 
-    # ### Bilevel SOS
+    # # ### Bilevel SOS
 
-    # Make sure max bids are at their maximum
-    max_generations = ones(num_strategic_buses) * max_total_volume
-    change_bids!(market, max_generations)
+    # # Make sure max bids are at their maximum
+    # max_generations = ones(num_strategic_buses) * max_total_volume
+    # change_bids!(market, max_generations)
 
-    # optimize
-    opt = QuadraticToBinary.Optimizer{Float64}(MOI.instantiate(optimizer_with_attributes(() -> Gurobi.Optimizer(env), "MIPGap" => 0.05)))
-    model = BilevelModel(() -> opt, 
-        mode = BilevelJuMP.SOS1Mode()
-    )
+    # # optimize
+    # opt = QuadraticToBinary.Optimizer{Float64}(MOI.instantiate(optimizer_with_attributes(() -> Gurobi.Optimizer(env), "MIPGap" => 0.05)))
+    # model = BilevelModel(() -> opt, 
+    #     mode = BilevelJuMP.SOS1Mode()
+    # )
 
-    @variable(Upper(model), 0 <= qS[i=1:num_strategic_buses] <= max_generations[i], start = 0.05)
+    # @variable(Upper(model), 0 <= qS[i=1:num_strategic_buses] <= max_generations[i], start = 0.05)
 
-    @constraint(Upper(model), sum(qS) <= max_total_volume)
+    # @constraint(Upper(model), sum(qS) <= max_total_volume)
 
-    pm = instantiate_model(market; jump_model=Lower(model))
+    # pm = instantiate_model(market; jump_model=Lower(model))
 
-    @variable(Upper(model), -10_000 <= lambda[i=1:num_strategic_buses] <= 10_000, DualOf(sol(pm, 0, :bus, parse(Int64, bus_indexes[i]))[:lam_kcl_r]), start = 1_000)
+    # @variable(Upper(model), -10_000 <= lambda[i=1:num_strategic_buses] <= 10_000, DualOf(sol(pm, 0, :bus, parse(Int64, bus_indexes[i]))[:lam_kcl_r]), start = 1_000)
 
-    gS = [var(pm, 0, :pg, parse(Int64, generator_indexes[i])) for i = 1:num_strategic_buses]
+    # gS = [PowerModels.var(pm, 0, :pg, parse(Int64, generator_indexes[i])) for i = 1:num_strategic_buses]
 
-    @constraint(Lower(model), gS .<= qS)
+    # @constraint(Lower(model), gS .<= qS)
 
-    @objective(Upper(model), Max, - lambda'gS)
+    # @objective(Upper(model), Max, - lambda'gS)
 
-    time_solve[num_buses, :SOS1] = @elapsed optimize!(model)
-    obj_val[num_buses, :SOS1] = profit_for_bid!(market, value.(qS))
+    # time_solve[num_buses, :SOS1] = @elapsed optimize!(model)
+    # obj_val[num_buses, :SOS1] = profit_for_bid!(market, value.(qS))
 
     println("SOLVE TIME")
     println(time_solve)

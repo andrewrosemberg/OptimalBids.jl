@@ -81,7 +81,7 @@ offer_weights = offer_weights / sum(offer_weights)
 
 # However, the decision maker is allowed to increase all bids evenly:
 min_total_volume = 0.0
-max_total_volume = 150.0
+max_total_volume = 155.0
 range_mul_factor = min_total_volume:1.0:max_total_volume
 bid_range = [offer_weights .* [i] for i in range_mul_factor]
 p_curve = profit_curve!(market, bid_range)
@@ -95,12 +95,14 @@ opf_time /= num_opfs
 # Let's plot and see how the range profit evaluatiuon went:
 plt_range = plot(collect(range_mul_factor) * 100 / max_load, p_curve,
     label="Range Evaluation",
-    ylabel="Profit (\$)",
-    xlabel="Market Share (% Load)",
+    ylabel="Profit (USD)",
+    xlabel="Bid Volume (% Market Share)",
     legend=:outertopright,
     left_margin=10mm,
     bottom_margin=10mm,
-    size=(900, 600)
+    size=(900, 600),
+    color=:black,
+    width=2.0
 );
 plt_comp = deepcopy(plt_range);
 ```
@@ -141,11 +143,71 @@ end
 ```
 
 ### Motivation for fixed weights
+
+#### Random bids range evaluation
+
+```@example Nonconvex
+
+number_of_curves = 30
+p_curves = Array{Any}(undef, number_of_curves)
+
+min_total_volume = 0.0
+max_total_volume = 655.0
+range_mul_factor = min_total_volume:5.0:max_total_volume
+
+num_points = length(range_mul_factor)
+
+for i = 1:2
+    offer_weights = rand(rng, num_strategic_buses)
+    offer_weights = offer_weights / sum(offer_weights)
+
+    # However, the decision maker is allowed to increase all bids evenly:
+    bid_range = [offer_weights .* [j] for j in range_mul_factor]
+    p_curves[i] = profit_curve!(market, bid_range)
+end
+
+for i = 3:number_of_curves
+    mul_factor = rand(rng, max_total_volume/4:max_total_volume)
+    offer_weights_up = rand(rng, num_strategic_buses)
+    offer_weights_up = offer_weights_up / sum(offer_weights_up) * mul_factor
+    offer_weights_down = rand(rng, num_strategic_buses)
+    offer_weights_down = offer_weights_down / sum(offer_weights_down) * mul_factor
+    norm(offer_weights_up - offer_weights_down, 1)
+    direction = offer_weights_up - offer_weights_down
+
+    # However, the decision maker is allowed to increase all bids evenly:
+    bid_range = [offer_weights_down + direction * i for i in range(0,1, num_points)]
+    p_curves[i] = profit_curve!(market, bid_range)
+end
+
+plot(range(-100,100, num_points), p_curves,
+    label="Range Evaluation",
+    ylabel="Profit (USD)",
+    xlabel="Relative Distance (%)",
+    legend=false,
+    left_margin=10mm,
+    bottom_margin=10mm,
+    size=(900, 600)
+)
+```
+
+
 #### Individual bids
 
 ```@example Nonconvex
 
-plt_comp_individual = deepcopy(plt_range);
+plt_comp_individual = plot(collect(range_mul_factor) * 100 / max_load, p_curve,
+    label="Regularized Benchmark",
+    ylabel="Profit (USD)",
+    xlabel="Bid Volume (% Market Share)",
+    legend=:outertopright,
+    left_margin=10mm,
+    bottom_margin=10mm,
+    size=(900, 600),
+    color=:black,
+    width=2.0
+);
+
 for i = 1:num_strategic_buses
     ind_offer = zeros(num_strategic_buses)
     ind_offer[i] = 1.0
@@ -163,15 +225,15 @@ plot(plt_comp_individual)
 
 # Max Number of Iterations for the solution method (proxy to a time limit at bidding time).
 # ps.: Currently, no option for limiting fcalls.
-maxiter = 30
+maxiter = 60
 
 storage_profit_function = StorageCallbackProfit(maxiter, time(); projection=ones(num_strategic_buses))
 
 # Build Nonconvex optimization model:
 model = Nonconvex.Model()
 set_objective!(model, storage_profit_function, flags = [:expensive])
-addvar!(model, fill(min_total_volume, num_strategic_buses), fill(max_total_volume, num_strategic_buses))
-add_ineq_constraint!(model, x -> sum(x) - max_total_volume * 1)
+addvar!(model, fill(min_total_volume, num_strategic_buses), fill(max_total_volume * 2, num_strategic_buses))
+add_ineq_constraint!(model, x -> sum(x) - max_total_volume * 8)
 
 # Solution Method: Bayesian Optimization
 alg = BayesOptAlg(IpoptAlg())
@@ -186,16 +248,28 @@ options = BayesOptOptions(
 )
 
 # Optimize model:
-r_bayes = optimize(model, alg, offer_weights * 75; options = options)
+r_bayes = optimize(model, alg, offer_weights * 5; options = options)
 
 best_solution = r_bayes.minimizer
 best_profit = -r_bayes.minimum
 
-scatter!(plt_comp, [sum(best_solution)] * 100 / max_load, [best_profit],
+plt_comp_individual = plot(collect(range_mul_factor) * 100 / max_load, p_curve,
+    label="Regularized Benchmark",
+    ylabel="Profit (USD)",
+    xlabel="Bid Volume (% Market Share)",
+    legend=:outertopright,
+    left_margin=10mm,
+    bottom_margin=10mm,
+    size=(900, 600),
+    color=:black,
+    width=2.0
+);
+
+scatter!(plt_comp_individual, [sum(best_solution)] * 100 / max_load, [best_profit],
     label="Multinode BayesOpt - OPF Calls:$(storage_profit_function.fcalls)",
 )
 
-plt_surrogate = deepcopy(plt_range);
+plt_surrogate = deepcopy(plt_comp_individual);
 
 range_mul_factor_multi_node = min_total_volume:1.0:max_load
 bid_range = [best_solution .* [i / sum(best_solution)] for i in range_mul_factor_multi_node]
@@ -238,7 +312,7 @@ storage_profit_function = StorageCallbackProfit(maxiter, time())
 model = Nonconvex.Model()
 set_objective!(model, storage_profit_function, flags = [:expensive])
 addvar!(model, [min_total_volume], [max_total_volume])
-add_ineq_constraint!(model, x -> -1) # errors when no inequality is added!
+add_ineq_constraint!(model, x -> sum(x) - max_total_volume)
 
 # Solution Method: Bayesian Optimization
 alg = BayesOptAlg(IpoptAlg())
@@ -311,8 +385,7 @@ alg = NLoptAlg(:LN_BOBYQA)
 options = NLoptOptions(maxeval=maxeval)
 
 # Optimize model
-callback_storage = StorageCallback(maxeval, time())
-r = optimize(model, alg, [max_total_volume / 2]; options = options)
+r = optimize(model, alg, [min_total_volume]; options = options)
 
 best_solution = r.minimizer
 best_profit = -r.minimum
@@ -327,7 +400,8 @@ plt_surrogate = deepcopy(plt_range);
 storage_profit_function.visited_times = storage_profit_function.visited_times ./ opf_time
 
 scatter!(plt_surrogate, storage_profit_function.visited_volumes[1:storage_profit_function.fcalls] * 100 / max_load, 
-    storage_profit_function.visited_objective[1:storage_profit_function.fcalls]; label="Visited"
+    storage_profit_function.visited_objective[1:storage_profit_function.fcalls]; label="Visited",
+    title="BOBYQA"
 )
 
 plot(storage_profit_function.visited_times[1:storage_profit_function.fcalls], 
@@ -335,7 +409,8 @@ plot(storage_profit_function.visited_times[1:storage_profit_function.fcalls],
     xlabel="Time (x OPF)",
     ylabel="Optimality Gap (%)",
     ylim=(0.0,1.0),
-    legend=false
+    legend=false,
+    title="BOBYQA"
 )
 ```
 
@@ -418,7 +493,7 @@ alg = NLoptAlg(method)
 options = NLoptOptions(maxeval=maxeval)
 
 # Optimize model
-r = optimize(model, alg, [max_total_volume / 2], options = options)
+r = optimize(model, alg, [min_total_volume + 5], options = options)
 
 best_solution = r.minimizer
 best_profit = -r.minimum
@@ -432,7 +507,8 @@ plt_visited = deepcopy(plt_range)
 storage_profit_function.visited_times = storage_profit_function.visited_times ./ opf_time
 
 scatter!(plt_visited, storage_profit_function.visited_volumes[1:storage_profit_function.fcalls] * 100 / max_load, 
-    storage_profit_function.visited_objective[1:storage_profit_function.fcalls]; label="Visited"
+    storage_profit_function.visited_objective[1:storage_profit_function.fcalls]; label="Visited",
+    title="LD_CCSAQ"
 )
 
 plot(storage_profit_function.visited_times[1:storage_profit_function.fcalls], 
@@ -440,6 +516,7 @@ plot(storage_profit_function.visited_times[1:storage_profit_function.fcalls],
     xlabel="Time (x OPF)",
     ylabel="Optimality Gap (%)",
     ylim=(0.0,1.0),
-    legend=false
+    legend=false,
+    title="LD_CCSAQ"
 )
 ```
