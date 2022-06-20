@@ -25,8 +25,12 @@ cases = Dict(
     118 => "pglib_opf_case118_ieee.m",
 )
 
-time_solve = DenseAxisArray(zeros(length(keys(cases)), 3), collect(keys(cases)), [:NLP, :FORTUNY, :SOS1])
-obj_val = DenseAxisArray(zeros(length(keys(cases)), 3), collect(keys(cases)), [:NLP, :FORTUNY, :SOS1])
+time_solve = DenseAxisArray(
+    zeros(length(keys(cases)), 3), collect(keys(cases)), [:NLP, :FORTUNY, :SOS1]
+)
+obj_val = DenseAxisArray(
+    zeros(length(keys(cases)), 3), collect(keys(cases)), [:NLP, :FORTUNY, :SOS1]
+)
 
 # Read market data from IEEE 118 bus case
 DATA_DIR = mktempdir()
@@ -37,7 +41,11 @@ for case_name in values(cases)
     case_file_path = joinpath(DATA_DIR, case_name)
     if !isfile(case_file_path)
         case_file_path = joinpath(DATA_DIR, case_name)
-        Downloads.download("https://raw.githubusercontent.com/power-grid-lib/pglib-opf/01681386d084d8bd03b429abcd1ee6966f68b9a3/" * case_name, case_file_path)
+        Downloads.download(
+            "https://raw.githubusercontent.com/power-grid-lib/pglib-opf/01681386d084d8bd03b429abcd1ee6966f68b9a3/" *
+            case_name,
+            case_file_path,
+        )
     end
     network_data = PowerModels.parse_file(case_file_path)
 
@@ -79,23 +87,34 @@ for case_name in values(cases)
     change_bids!(market, max_generations)
 
     # optimize
-    model = BilevelModel(optimizer_with_attributes(Ipopt.Optimizer, "print_level" => 0), 
-        mode = BilevelJuMP.ProductMode(1e-5)
+    model = BilevelModel(
+        optimizer_with_attributes(Ipopt.Optimizer, "print_level" => 0);
+        mode=BilevelJuMP.ProductMode(1e-5),
     )
 
-    @variable(Upper(model), 0 <= qS[i=1:num_strategic_buses] <= max_generations[i], start = 0.1) # if `start=0.1` => false NLP infeastible
+    @variable(
+        Upper(model), 0 <= qS[i=1:num_strategic_buses] <= max_generations[i], start = 0.1
+    ) # if `start=0.1` => false NLP infeastible
 
     @constraint(Upper(model), sum(qS) <= max_total_volume)
 
     pm = instantiate_model(market; jump_model=Lower(model))
 
-    @variable(Upper(model), -10_000 <= lambda[i=1:num_strategic_buses] <= 10_000, DualOf(sol(pm, 0, :bus, parse(Int64, bus_indexes[i]))[:lam_kcl_r]), start = 1)
+    @variable(
+        Upper(model),
+        -10_000 <= lambda[i=1:num_strategic_buses] <= 10_000,
+        DualOf(sol(pm, 0, :bus, parse(Int64, bus_indexes[i]))[:lam_kcl_r]),
+        start = 1
+    )
 
-    gS = [PowerModels.var(pm, 0, :pg, parse(Int64, generator_indexes[i])) for i = 1:num_strategic_buses]
+    gS = [
+        PowerModels.var(pm, 0, :pg, parse(Int64, generator_indexes[i])) for
+        i in 1:num_strategic_buses
+    ]
 
     @constraint(Lower(model), gS .<= qS)
 
-    @objective(Upper(model), Max, - lambda'gS)
+    @objective(Upper(model), Max, -lambda'gS)
 
     time_solve[num_buses, :NLP] = @elapsed optimize!(model)
 
@@ -112,7 +131,6 @@ for case_name in values(cases)
     # model = BilevelModel(() -> opt, 
     #     mode = BilevelJuMP.FortunyAmatMcCarlMode(primal_big_M = 10000, dual_big_M = 10000)
     # )
-
 
     # @variable(Upper(model), 0 <= qS[i=1:num_strategic_buses] <= max_generations[i], start = 0.005)
 

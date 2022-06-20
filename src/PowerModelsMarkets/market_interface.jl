@@ -170,7 +170,7 @@ function PowerModels.instantiate_model(market::PowerModelsMarket; jump_model=JuM
         market.market_formulation,
         market.opf_builder;
         setting=Dict("output" => Dict("duals" => true)),
-        jump_model=jump_model
+        jump_model=jump_model,
     )
 end
 
