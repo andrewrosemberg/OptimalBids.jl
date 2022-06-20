@@ -1,9 +1,14 @@
 @testset "PowerModelsMarkets" begin
-    @testset "Case: $case_name" for case_name in ["pglib_opf_case118_ieee.m", "pglib_opf_case5_pjm.m"]
+    @testset "Case: $case_name" for case_name in
+                                    ["pglib_opf_case118_ieee.m", "pglib_opf_case5_pjm.m"]
         # Download test case
         DATA_DIR = mktempdir()
         case_file_path = joinpath(DATA_DIR, case_name)
-        Downloads.download("https://raw.githubusercontent.com/power-grid-lib/pglib-opf/01681386d084d8bd03b429abcd1ee6966f68b9a3/" * case_name, case_file_path)
+        Downloads.download(
+            "https://raw.githubusercontent.com/power-grid-lib/pglib-opf/01681386d084d8bd03b429abcd1ee6966f68b9a3/" *
+            case_name,
+            case_file_path,
+        )
 
         # Choice of number of strategic bidding locations
         percentage_buses = 0.1
@@ -58,10 +63,7 @@
                 ).strategic_generators
 
             market = build_market(
-                PowerModelsMarket,
-                network_data,
-                generator_indexes,
-                Clp.Optimizer,
+                PowerModelsMarket, network_data, generator_indexes, Clp.Optimizer
             )
             @test all(market.strategic_generators .== sg_aux)
         end
@@ -95,7 +97,9 @@
 
         @testset "rrule profit_for_bid!" begin
             test_rrule(profit_for_bid!, market ⊢ ChainRulesCore.NoTangent(), initial_bids)
-            test_rrule(profit_for_bid!, market ⊢ ChainRulesCore.NoTangent(), initial_bids * 1e7)
+            test_rrule(
+                profit_for_bid!, market ⊢ ChainRulesCore.NoTangent(), initial_bids * 1e7
+            )
         end
 
         min_total_volume = 0.0
@@ -112,23 +116,22 @@
         @testset "Profit Maximization using Nonconvex" begin
             function profit_function(total_volume)
                 initial_bids = collect(0.01:0.01:(num_strategic_buses * 0.01))
-                return - profit_for_bid!(market, initial_bids .* total_volume[1])
+                return -profit_for_bid!(market, initial_bids .* total_volume[1])
             end
 
             # Max Number of Iterations for the solution method
             maxiter = 10
 
             model = Model()
-            set_objective!(model, profit_function, flags = [:expensive])
+            set_objective!(model, profit_function; flags=[:expensive])
             addvar!(model, [min_total_volume], [max_total_volume])
             add_ineq_constraint!(model, x -> -1) # Errors when no inequality is added! 
 
             alg = BayesOptAlg(IpoptAlg())
-            options = BayesOptOptions(
-                sub_options = IpoptOptions(),
-                maxiter = maxiter, ftol = 1e-4, ctol = 1e-5,
+            options = BayesOptOptions(;
+                sub_options=IpoptOptions(), maxiter=maxiter, ftol=1e-4, ctol=1e-5
             )
-            r = optimize(model, alg, [min_total_volume], options = options)
+            r = optimize(model, alg, [min_total_volume]; options=options)
 
             @test r.minimizer[1] >= min_total_volume && r.minimizer[1] <= max_total_volume
             # Assumption that the range evaluation found something at most 1.5x lower than the true maximum
