@@ -1,5 +1,5 @@
-# Examples
-## Profit Maximization Example: using Optim.jl
+# Profit Maximization Example
+## using Optim.jl
 This a example on how to use [Optim.jl](https://github.com/JuliaNLSolvers/Optim.jl/) to maximize the profit of a company operating in a defined market (through the `OptimalBids` API).
 
  - For this example, we will use a market of type `PowerModelsMarkets` which represents an energy spot market.
@@ -17,6 +17,7 @@ using JuMP: optimizer_with_attributes
 using Optim
 
 using Plots # For some evaluation plots at the end
+using Plots.PlotMeasures
 using Downloads # To download Test Cases
 
 ```
@@ -82,6 +83,8 @@ plt_range = plot(collect(range_mul_factor), p_curve,
     ylabel="Profit (\$)",
     xlabel="Multiplicative Factor",
     legend=:outertopright,
+    left_margin=10mm,
+    bottom_margin=10mm,
 );
 plt_comp = deepcopy(plt_range);
 ```

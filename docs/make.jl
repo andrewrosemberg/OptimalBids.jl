@@ -13,9 +13,12 @@ makedocs(;
         canonical="https://andrewrosemberg.github.io/OptimalBids.jl",
         assets=String[],
     ),
-    pages=["Home" => "index.md",
-        "Examples" => ["Nonconvex.jl" => "examples/Nonconvex.md",
-            "Optim.jl" => "examples/Optim.md"
+    pages=[
+        "Home" => "index.md",
+        "Examples" => [
+            "Nonconvex.jl" => "examples/Nonconvex.md",
+            "Optim.jl" => "examples/Optim.md",
+            "AbstractGPs.jl" => "examples/GaussianProcesses.md",
         ],
         "API" => "api.md",
     ],

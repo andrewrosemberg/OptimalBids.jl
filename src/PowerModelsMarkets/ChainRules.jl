@@ -3,10 +3,12 @@
 
 Analytical gradient of `profit_for_bid!` w.r.t inputs, knowing clearing.
 """
-function analytical_gradient(::typeof(profit_for_bid!), clearing::NamedTuple, inputs::Vector{<:Any})
+function analytical_gradient(
+    ::typeof(profit_for_bid!), clearing::NamedTuple, inputs::Vector{<:Any}
+)
     Δ = deepcopy(clearing.clearing_prices)
     for i in 1:length(inputs)
-        if !isapprox(clearing.cleared_volumes[i], inputs[i], rtol=0.1)
+        if !isapprox(clearing.cleared_volumes[i], inputs[i]; rtol=0.1)
             Δ[i] = 0.0
         end
     end
@@ -29,14 +31,16 @@ function profit_and_gradient_for_bid!(market::Market, new_bids::Vector{<:Any})
     return y, Δ
 end
 
-function ChainRulesCore.rrule(f::typeof(profit_for_bid!), market::PowerModelsMarket, inputs::Vector{<:Any})
+function ChainRulesCore.rrule(
+    f::typeof(profit_for_bid!), market::PowerModelsMarket, inputs::Vector{<:Any}
+)
     y, Δ = profit_and_gradient_for_bid!(market, inputs)
-    
+
     function profit_for_bid_pullback(ȳ)
         īnputs = Δ * ȳ
         m̄arket = @not_implemented("derivative w.r.t market")
         return NoTangent(), m̄arket, īnputs
     end
-    
+
     return y, profit_for_bid_pullback
 end

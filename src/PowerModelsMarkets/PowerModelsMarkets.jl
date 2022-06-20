@@ -12,8 +12,16 @@ using ChainRulesCore
 import ..OptimalBids: Market, build_market, change_bids!, clear_market!, calculate_profit
 using Reexport: Reexport
 
+import PowerModels: instantiate_model
+
 export PowerModelsMarket,
-    build_market, change_bids!, clear_market!, calculate_profit, add_generator, profit_and_gradient_for_bid!
+    build_market,
+    change_bids!,
+    clear_market!,
+    calculate_profit,
+    add_generator,
+    profit_and_gradient_for_bid!,
+    instantiate_model
 
 Reexport.@reexport using PowerModels
 
