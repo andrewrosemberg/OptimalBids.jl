@@ -196,6 +196,10 @@ plot(range(-100,100, num_points), p_curves,
 
 ```@example Nonconvex
 
+min_total_volume = 0.0
+max_total_volume = 155.0
+range_mul_factor = min_total_volume:1.0:max_total_volume
+
 plt_comp_individual = plot(collect(range_mul_factor) * 100 / max_load, p_curve,
     label="Regularized Benchmark",
     ylabel="Profit (USD)",
@@ -227,7 +231,7 @@ plot(plt_comp_individual)
 # ps.: Currently, no option for limiting fcalls.
 maxiter = 60
 
-storage_profit_function = StorageCallbackProfit(maxiter, time(); projection=ones(num_strategic_buses))
+storage_profit_function = StorageCallbackProfit(maxiter * 10, time(); projection=ones(num_strategic_buses))
 
 # Build Nonconvex optimization model:
 model = Nonconvex.Model()
@@ -306,7 +310,7 @@ plot(storage_profit_function.visited_times[1:storage_profit_function.fcalls],
 # ps.: Currently, no option for limiting fcalls.
 maxiter = 10
 
-storage_profit_function = StorageCallbackProfit(maxiter, time())
+storage_profit_function = StorageCallbackProfit(maxiter * 10, time())
 
 # Build Nonconvex optimization model:
 model = Nonconvex.Model()
@@ -372,7 +376,7 @@ plot(storage_profit_function.visited_times[1:storage_profit_function.fcalls],
 using NonconvexNLopt
 
 maxeval = 50
-storage_profit_function = StorageCallbackProfit(maxeval, time())
+storage_profit_function = StorageCallbackProfit(maxeval * 10, time())
 
 # Build Nonconvex optimization model:
 model = Nonconvex.Model()
@@ -421,7 +425,7 @@ plot(storage_profit_function.visited_times[1:storage_profit_function.fcalls],
 using NonconvexMultistart
 
 maxiter = 10
-storage_profit_function = StorageCallbackProfit(500, time())
+storage_profit_function = StorageCallbackProfit(maxiter * 10, time())
 
 # Build Nonconvex optimization model:
 model = Nonconvex.Model()
@@ -480,7 +484,7 @@ plot(plt_comp, margin=5Plots.mm,
 using NonconvexNLopt
 
 maxeval = 50
-storage_profit_function = StorageCallbackProfit(maxeval, time())
+storage_profit_function = StorageCallbackProfit(maxeval * 10, time())
 
 # Build Nonconvex optimization model:
 model = Nonconvex.Model()
