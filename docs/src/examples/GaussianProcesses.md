@@ -205,7 +205,7 @@ fx = f(x, 0.001)
 p_fx = posterior(fx, y)
 
 # Plot posterior.
-plot!(plt_comp, collect(range_mul_factor) * 100 / max_load, p_fx(collect(range_mul_factor))(collect(range_mul_factor)); label="Posterior - " * string(Matern32Kernel))
+plot!(plt_comp, collect(range_mul_factor) * 100 / max_load, p_fx(collect(range_mul_factor)); label="Posterior - " * string(Matern32Kernel))
 ```
 
 
