@@ -11,7 +11,7 @@ This a example on how to use [Nonconvex.jl](https://github.com/JuliaNonconvex/No
 ```@example Nonconvex
 using OptimalBids
 using OptimalBids.PowerModelsMarkets
-using Gurobi # Market Clearing Solver
+using Clp # Market Clearing Solver
 using JuMP: optimizer_with_attributes
 
 using Nonconvex
@@ -70,7 +70,7 @@ market = build_market(
     PowerModelsMarket,
     network_data,
     generator_indexes,
-    optimizer_with_attributes(Gurobi.Optimizer, "OutputFlag" => 0),
+    optimizer_with_attributes(Clp.Optimizer, "LogLevel" => 0),
 )
 
 # Relative distribution of offers are sometimes predefined and cannot be changed at bidding time.
