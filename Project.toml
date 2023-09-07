@@ -19,11 +19,11 @@ julia = "^1.6"
 [extras]
 ChainRulesTestUtils = "cdddcdb0-9152-4a09-a978-84456f9df70a"
 Clp = "e2554f3b-3117-50c0-817c-e040a3ddf72d"
+Downloads = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 Nonconvex = "01bcebdf-4d21-426d-b5c4-6132c1619978"
 NonconvexBayesian = "fb352abc-de7b-48de-9ebd-665b54b5d9b3"
 NonconvexIpopt = "bf347577-a06d-49ad-a669-8c0e005493b8"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
-Downloads = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 
 [targets]
 test = ["Test", "Clp", "Nonconvex", "NonconvexBayesian", "NonconvexIpopt", "ChainRulesTestUtils", "Downloads"]
