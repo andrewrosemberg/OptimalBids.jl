@@ -30,27 +30,28 @@
 
         # test PowerModelsMarket functions
         market = nothing
+        solver = optimizer_with_attributes(HiGHS.Optimizer, "output_flag" => false)
         @testset "build_market" begin
             @test_throws MethodError build_market(
                 PowerModelsMarket,
                 network_data,
                 collect(1:num_strategic_buses),
                 collect(1:num_strategic_buses),
-                Clp.Optimizer,
+                solver,
             )
             @test_throws BoundsError build_market(
                 PowerModelsMarket,
                 network_data,
                 generator_indexes,
                 bus_indexes[1:(end - 1)],
-                Clp.Optimizer,
+                solver,
             )
             @test_throws DomainError build_market(
                 PowerModelsMarket,
                 network_data,
                 generator_indexes,
                 [bus_indexes[1:(end - 1)]; "44"],
-                Clp.Optimizer,
+                solver,
             )
 
             sg_aux =
@@ -59,11 +60,11 @@
                     network_data,
                     generator_indexes,
                     bus_indexes,
-                    Clp.Optimizer,
+                    solver,
                 ).strategic_generators
 
             market = build_market(
-                PowerModelsMarket, network_data, generator_indexes, Clp.Optimizer
+                PowerModelsMarket, network_data, generator_indexes, solver
             )
             @test all(market.strategic_generators .== sg_aux)
         end
@@ -125,7 +126,8 @@
             model = Model()
             set_objective!(model, profit_function; flags=[:expensive])
             addvar!(model, [min_total_volume], [max_total_volume])
-            add_ineq_constraint!(model, x -> -1) # Errors when no inequality is added! 
+            # add_ineq_constraint!(model, x -> -10.0) # Errors when no inequality is added! 
+            # add_ineq_constraint!(model, x -> -10.0) # Errors when no inequality is added! 
 
             alg = BayesOptAlg(IpoptAlg())
             options = BayesOptOptions(;

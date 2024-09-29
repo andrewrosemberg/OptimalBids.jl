@@ -12,7 +12,7 @@ function add_generator(nw_data::Dict, bus_index::Int)
         error("crazy generator indexes")
 
     nw_data["gen"][string(gen_idx)] = Dict(
-        "ncost" => 1,
+        "ncost" => 2,
         "qc1max" => 0.0,
         "pg" => 0.0,
         "model" => 2,
@@ -29,7 +29,7 @@ function add_generator(nw_data::Dict, bus_index::Int)
         "source_id" => Any["gen", gen_idx],
         "pc2" => 0.0,
         "index" => gen_idx,
-        "cost" => 0.0,
+        "cost" => [0.0; 0.0],
         "qmax" => 0.0,
         "gen_status" => 1,
         "qmin" => 0.00,

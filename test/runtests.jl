@@ -1,4 +1,4 @@
-using Clp
+using HiGHS
 using OptimalBids
 using OptimalBids.PowerModelsMarkets
 using Test

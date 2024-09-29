@@ -29,7 +29,7 @@ In order to exemplify some of the functionalities available, let's use the inter
 ```julia
 using OptimalBids
 using OptimalBids.PowerModelsMarkets
-using Clp # Market Clearing Solver
+using HiGHS # Market Clearing Solver
 using Plots # For some evaluation plots at the end
 
 #=
@@ -66,7 +66,7 @@ market = build_market(
     PowerModelsMarket,
     network_data,
     generator_indexes,
-    Clp.Optimizer,
+    HiGHS.Optimizer,
 )
 
 # New generators are added with 0.0 max capacity (a.k.a bid/offer), so lets change their volume offers:
