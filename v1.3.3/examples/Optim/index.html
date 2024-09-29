@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Optim.jl · OptimalBids.jl</title><script data-outdated-warner src="../../assets/warner.js"></script><link rel="canonical" href="https://andrewrosemberg.github.io/OptimalBids.jl/examples/Optim/"/><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.044/juliamono.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.11/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">OptimalBids.jl</a></span></div><form class="docs-search" action="../../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Examples</span><ul><li><a class="tocitem" href="../Nonconvex/">Nonconvex.jl</a></li><li class="is-active"><a class="tocitem" href>Optim.jl</a><ul class="internal"><li><a class="tocitem" href="#using-Optim.jl"><span>using Optim.jl</span></a></li></ul></li><li><a class="tocitem" href="../GaussianProcesses/">AbstractGPs.jl</a></li></ul></li><li><a class="tocitem" href="../../api/">API</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>Optim.jl</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Optim.jl</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/andrewrosemberg/OptimalBids.jl/blob/master/docs/src/examples/Optim.md#" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Profit-Maximization-Example"><a class="docs-heading-anchor" href="#Profit-Maximization-Example">Profit Maximization Example</a><a id="Profit-Maximization-Example-1"></a><a class="docs-heading-anchor-permalink" href="#Profit-Maximization-Example" title="Permalink"></a></h1><h2 id="using-Optim.jl"><a class="docs-heading-anchor" href="#using-Optim.jl">using Optim.jl</a><a id="using-Optim.jl-1"></a><a class="docs-heading-anchor-permalink" href="#using-Optim.jl" title="Permalink"></a></h2><p>This a example on how to use <a href="https://github.com/JuliaNLSolvers/Optim.jl/">Optim.jl</a> to maximize the profit of a company operating in a defined market (through the <code>OptimalBids</code> API).</p><ul><li>For this example, we will use a market of type <code>PowerModelsMarkets</code> which represents an energy spot market.</li><li>Case instance is IEEE 118 Bus Case</li><li>To ilustrate a situation where the company defines the distribution of volume across it&#39;s assets in a predefined way (and reduce the decision dimentionality), the only controlable variable to maximize the company profit is a multiplicative factor of all offers.  </li></ul><h3 id="Include-Needed-Packages"><a class="docs-heading-anchor" href="#Include-Needed-Packages">Include Needed Packages</a><a id="Include-Needed-Packages-1"></a><a class="docs-heading-anchor-permalink" href="#Include-Needed-Packages" title="Permalink"></a></h3><pre><code class="language-julia hljs">using OptimalBids
+using OptimalBids.PowerModelsMarkets
+using HiGHS # Market Clearing Solver
+using JuMP: optimizer_with_attributes
+
+using Optim
+
+using Plots # For some evaluation plots at the end
+using Plots.PlotMeasures
+using Downloads # To download Test Cases</code></pre><h3 id="Case-Definition"><a class="docs-heading-anchor" href="#Case-Definition">Case Definition</a><a id="Case-Definition-1"></a><a class="docs-heading-anchor-permalink" href="#Case-Definition" title="Permalink"></a></h3><pre><code class="language-julia hljs"># Read market data from IEEE 118 bus case
+case_name = &quot;pglib_opf_case118_ieee.m&quot;
+DATA_DIR = mktempdir()
+case_file_path = joinpath(DATA_DIR, case_name)
+Downloads.download(&quot;https://raw.githubusercontent.com/power-grid-lib/pglib-opf/01681386d084d8bd03b429abcd1ee6966f68b9a3/&quot; * case_name, case_file_path)
+network_data = PowerModels.parse_file(case_file_path)
+
+# Pretend we are a company constructing a new set of generators in the grid.
+# Choose a percentage of the total number of buses to install the new generators:
+percentage_buses = 0.09
+
+# We need the keys PowerModels uses to reference the appropriate buses in it&#39;s network data dictionary.
+# First, find out all available keys:
+bus_indexes = collect(keys(network_data[&quot;bus&quot;]))
+# Then, calculate number of buses that consitute the chose percent (`percentage_buses`):
+num_buses = length(bus_indexes)
+num_strategic_buses = ceil(Int, percentage_buses * num_buses)
+# To avoid any biases let&#39;s grab some generators in the middle:
+bus_indexes = bus_indexes[21:(21 + num_strategic_buses - 1)]
+# Finally, add new generators to the network grid data and collect their reference keys.
+generator_indexes = [
+    add_generator(network_data, parse(Int, bus_idx)) for bus_idx in bus_indexes
+]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">11-element Vector{String}:
+ &quot;55&quot;
+ &quot;56&quot;
+ &quot;57&quot;
+ &quot;58&quot;
+ &quot;59&quot;
+ &quot;60&quot;
+ &quot;61&quot;
+ &quot;62&quot;
+ &quot;63&quot;
+ &quot;64&quot;
+ &quot;65&quot;</code></pre><h3 id="OptimalBids-API"><a class="docs-heading-anchor" href="#OptimalBids-API">OptimalBids API</a><a id="OptimalBids-API-1"></a><a class="docs-heading-anchor-permalink" href="#OptimalBids-API" title="Permalink"></a></h3><pre><code class="language- hljs">
+# Define market
+market = build_market(
+    PowerModelsMarket,
+    network_data,
+    generator_indexes,
+    optimizer_with_attributes(HiGHS.Optimizer, &quot;LogLevel&quot; =&gt; 0),
+)
+
+# Relative distribution of offers are sometimes predefined and cannot be changed at bidding time.
+using Random
+rng = MersenneTwister(0)
+offer_weights = rand(rng, num_strategic_buses)
+offer_weights = offer_weights/ sum(offer_weights)
+
+# However, the decision maker is allowed to increase all bids evenly:
+min_total_volume = 0.0
+max_total_volume = 65.0
+range_mul_factor = min_total_volume:0.1:max_total_volume
+bid_range = [offer_weights .* [i] for i in range_mul_factor]
+p_curve = profit_curve!(market, bid_range)
+
+# Let&#39;s plot and see how the range profit evaluatiuon went:
+plt_range = plot(collect(range_mul_factor), p_curve,
+    label=&quot;Range Evaluation&quot;,
+    ylabel=&quot;Profit (\$)&quot;,
+    xlabel=&quot;Multiplicative Factor&quot;,
+    legend=:outertopright,
+    left_margin=10mm,
+    bottom_margin=10mm,
+);
+plt_comp = deepcopy(plt_range);</code></pre><h3 id="Profit-Function"><a class="docs-heading-anchor" href="#Profit-Function">Profit Function</a><a id="Profit-Function-1"></a><a class="docs-heading-anchor-permalink" href="#Profit-Function" title="Permalink"></a></h3><pre><code class="language-julia hljs"># Optim needs a minimization objective function that only receives the decision vector.
+function profit_function(total_volume)
+    global fcalls += 1
+    return - profit_for_bid!(market, offer_weights .* total_volume[1])
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">profit_function (generic function with 1 method)</code></pre><h3 id="NelderMead-(0-Order)"><a class="docs-heading-anchor" href="#NelderMead-(0-Order)">NelderMead (0-Order)</a><a id="NelderMead-(0-Order)-1"></a><a class="docs-heading-anchor-permalink" href="#NelderMead-(0-Order)" title="Permalink"></a></h3><pre><code class="language- hljs">
+# Max Number of Iterations for the solution method (proxy to a time limit at bidding time).
+maxiter = 10
+global fcalls = 0
+
+# Solve Optim optimization model:
+lower = [min_total_volume]
+upper = [max_total_volume]
+initial_x = [min_total_volume] .+ 0.001 # Initial value cannot be on boundary value
+
+# Limiting fcalls.
+function advanced_fcall_control(x)
+    println(&quot; * Fcalls so far:     &quot;, fcalls)
+    if fcalls &gt;= maxiter
+        return true
+    end
+    println()
+    false
+end
+
+inner_optimizer = NelderMead()
+results = Optim.optimize(profit_function, lower, upper, initial_x, Fminbox(inner_optimizer), Optim.Options(f_calls_limit=maxiter, callback = advanced_fcall_control, store_trace=true))
+
+best_solution = results.minimizer
+best_profit = -results.minimum
+
+scatter!(plt_comp, [best_solution], [best_profit],
+    label=&quot;NelderMead - OPF Calls:$(fcalls)&quot;,
+)</code></pre><h3 id="LBFGS-(1-Order)"><a class="docs-heading-anchor" href="#LBFGS-(1-Order)">LBFGS (1-Order)</a><a id="LBFGS-(1-Order)-1"></a><a class="docs-heading-anchor-permalink" href="#LBFGS-(1-Order)" title="Permalink"></a></h3><pre><code class="language- hljs">
+# Profit and gradient
+using LinearAlgebra
+
+function fg!(F,G,total_volume)
+    y, Δ = profit_and_gradient_for_bid!(market, offer_weights .* total_volume[1])
+    global fcalls += 1
+
+    isnothing(G) || copyto!(G, dot(Δ, offer_weights))
+    isnothing(F) || return y
+
+    nothing
+end
+
+# Max Number of Iterations for the solution method (proxy to a time limit at bidding time).
+maxiter = 10
+global fcalls = 0
+
+inner_optimizer = LBFGS()
+results = Optim.optimize(Optim.only_fg!(fg!), lower, upper, initial_x, Fminbox(inner_optimizer), Optim.Options(f_calls_limit=maxiter, callback = advanced_fcall_control, store_trace=true))
+
+best_solution = results.minimizer
+best_profit = -results.minimum
+
+scatter!(plt_comp, [best_solution], [best_profit],
+    label=&quot;LBFGS - OPF Calls:$(fcalls)&quot;,
+)</code></pre><h3 id="Brent-(0-Order)"><a class="docs-heading-anchor" href="#Brent-(0-Order)">Brent (0-Order)</a><a id="Brent-(0-Order)-1"></a><a class="docs-heading-anchor-permalink" href="#Brent-(0-Order)" title="Permalink"></a></h3><pre><code class="language- hljs">
+# Max Number of Iterations for the solution method (proxy to a time limit at bidding time).
+maxiter = 10
+global fcalls = 0
+
+function profit_function(total_volume)
+    global fcalls += 1
+    return - profit_for_bid!(market, offer_weights .* total_volume)
+end
+results = Optim.optimize(profit_function, min_total_volume, max_total_volume, Brent(); callback = advanced_fcall_control, store_trace=true)
+
+best_solution = results.minimizer
+best_profit = -results.minimum
+
+scatter!(plt_comp, [best_solution], [best_profit],
+    label=&quot;Brent - OPF Calls:$(fcalls)&quot;,
+)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../Nonconvex/">« Nonconvex.jl</a><a class="docs-footer-nextpage" href="../GaussianProcesses/">AbstractGPs.jl »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.16 on <span class="colophon-date" title="Sunday 29 September 2024 23:22">Sunday 29 September 2024</span>. Using Julia version 1.10.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
