@@ -23,7 +23,7 @@ makedocs(;
         "API" => "api.md",
     ],
     checkdocs=:exports,
-    strict=false,
+    warnonly=true,
 )
 
 deploydocs(; repo="github.com/andrewrosemberg/OptimalBids.jl", devbranch="main")
