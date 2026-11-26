@@ -11,7 +11,7 @@ makedocs(;
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
         canonical="https://andrewrosemberg.github.io/OptimalBids.jl",
-        assets=String[],
+        assets=["assets/figures.css"],
     ),
     pages=[
         "Home" => "index.md",
@@ -23,7 +23,7 @@ makedocs(;
         "API" => "api.md",
     ],
     checkdocs=:exports,
-    strict=false,
+    warnonly=true,
 )
 
 deploydocs(; repo="github.com/andrewrosemberg/OptimalBids.jl", devbranch="main")
