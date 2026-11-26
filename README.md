@@ -1,25 +1,31 @@
-# OptimalBids
+<div align="center">
 
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://andrewrosemberg.github.io/OptimalBids.jl/stable)
-[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://andrewrosemberg.github.io/OptimalBids.jl/dev)
-[![Coverage](https://codecov.io/gh/andrewrosemberg/OptimalBids.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/andrewrosemberg/OptimalBids.jl)
-[![Code Style: Blue](https://img.shields.io/badge/code%20style-blue-4495d1.svg)](https://github.com/invenia/BlueStyle)
-[![ColPrac: Contributor's Guide on Collaborative Practices for Community Packages](https://img.shields.io/badge/ColPrac-Contributor's%20Guide-blueviolet)](https://github.com/SciML/ColPrac)
+# OptimalBids.jl
 
-Simple Package to help evaluate bids in markets/auctions.
+<p><sub><b>BILEVEL DECISIONS · MARKET CLEARING · SEARCH OVER OFFERS</b></sub></p>
 
-## Instalation
+[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://andrewrosemberg.github.io/OptimalBids.jl/stable) [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://andrewrosemberg.github.io/OptimalBids.jl/dev) [![Coverage](https://codecov.io/gh/andrewrosemberg/OptimalBids.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/andrewrosemberg/OptimalBids.jl) [![Code Style: Blue](https://img.shields.io/badge/code%20style-blue-4495d1.svg)](https://github.com/invenia/BlueStyle) [![ColPrac: Contributor's Guide on Collaborative Practices for Community Packages](https://img.shields.io/badge/ColPrac-Contributor's%20Guide-blueviolet)](https://github.com/SciML/ColPrac)
+
+</div>
+
+<p align="center">
+  <picture>
+    <source media="(max-width: 640px)" srcset="docs/src/assets/diagrams/optimalbids--market-compact.svg">
+    <img src="docs/src/assets/diagrams/optimalbids--market.svg" width="760" alt="A market is four functions. build_market sets it up once. An offer u (the offered quantities u_i of the strategic generators i in S) is written into the network by change_bids!; clear_market! solves the operator's clearing, minimize the sum of c_j g_j subject to power flow with balance at each bus n (price pi_n) and 0 at most g_i at most u_i, as a PowerModels OPF; calculate_profit returns J(u), the sum over i of q_i star times pi_i star. The same market gives three kinds of access: evaluation (profit_for_bid!), local (profit_and_gradient_for_bid!, a price-based estimate of dJ/du_i with prices held fixed) and exact (instantiate_model, the clearing as the lower level of a bilevel model).">
+  </picture>
+</p>
+<p align="center"><i>A market is built once; each offer is written into the network, cleared by an optimal power flow and scored, and the same market object serves evaluation, local and exact access.</i></p>
+
+An offer is scored only after a market operator clears it, so the profit of a candidate offer is a function of another
+agent's optimization. OptimalBids.jl reduces a market to four operations (building it, changing the offers, clearing,
+and computing profit), so that derivative-free search, gradient search and exact bilevel reformulations act on one
+market definition.
+
+## Installation
 
 ```julia
 ] add OptimalBids
 ```
-
-## Overview
-
-The framework used is based around the dispatch of the following functions for specified markets (subtypes of the core abstract type `Market`):
-`build_market`, `change_bids!`, `clear_market!`, `calculate_profit` (see docstrings for more info - e.g. `@doc change_bids!`). I.e. these are the functions that need to be implemented for each market type.
-
-In addition, the functions `profit_for_bid!`, `profit_curve!` are implemented in a reasonably generic way, allowing users to dispatch them with any new market. (see docstrings for more info - e.g. `@doc profit_for_bid!`).
 
 ## PowerModels-Markets Example
 
@@ -98,4 +104,52 @@ plot(collect(range_mul_factor), p_curve,
 )
 ```
 
-![](https://raw.githubusercontent.com/andrewrosemberg/OptimalBids.jl/main/docs/src/assets/profit_curve.png)
+<p align="center">
+  <img src="docs/src/assets/optimalbids-bayesopt.gif" width="600" alt="Bayesian optimization building a Gaussian-process surrogate of a jagged producer-profit curve, one clearing at a time.">
+</p>
+<p align="center"><sub><b>Surrogate search along one offer direction.</b> Bayesian optimization of producer profit on IEEE 118 with DC clearing,
+all offered quantities scaled by one factor; points are clearings and the band is the Gaussian-process posterior. Profit
+jumps wherever the active set of the clearing changes, which is what makes the search hard. From the
+<a href="https://andrewrosemberg.github.io/OptimalBids.jl/stable/examples/Nonconvex/">Nonconvex.jl example</a>.</sub></p>
+
+## Design
+
+A market is a subtype of the abstract type `Market` that implements four functions; these are what a new market type
+has to provide (see the docstrings, e.g. `@doc change_bids!`):
+
+| Function | What it does |
+|:--|:--|
+| `build_market` | builds the market once from its data and a solver |
+| `change_bids!` | writes the strategic agent's offers into the market |
+| `clear_market!` | clears the market (for `PowerModelsMarket`, an optimal power flow) |
+| `calculate_profit` | returns the cleared volumes, clearing prices and per-offer profit |
+
+The functions `profit_for_bid!` and `profit_curve!` are built on these four in a generic way, so they evaluate any new
+market without further code (see e.g. `@doc profit_for_bid!`). `PowerModelsMarket` clears by optimal power flow in the
+PowerModels formulation passed as `market_formulation` (DC by default, AC, or any other), so linear and nonlinear
+clearing of one network differ in a single argument. The same market object gives three kinds of access:
+
+| Access | Function | Returns |
+|:--|:--|:--|
+| Evaluation | `profit_for_bid!(market, u)` | the profit $J(u)$, one clearing per call |
+| Local | `profit_and_gradient_for_bid!(market, u)` | $J(u)$ and a price-based estimate of $\partial J/\partial u$ (prices held fixed; also a ChainRules rule) |
+| Exact | `instantiate_model(market; jump_model = Lower(model))` | the clearing as the lower level of a BilevelJuMP model |
+
+The [documentation](https://andrewrosemberg.github.io/OptimalBids.jl/stable) has the notation, the three access modes
+in detail, and worked examples with Optim.jl, Nonconvex.jl and AbstractGPs.jl.
+
+## Citation
+
+For the methods, cite the strategic-bidding paper:
+
+```bibtex
+@article{rosemberg2025strategic,
+  title   = {Strategic bidding in energy markets with gradient-based iterative methods},
+  author  = {Rosemberg, Andrew and Pacaud, Fran{\c{c}}ois and Dias Garcia, Joaquim and Parker, Robert B. and Sundar, Kaarthik and Bent, Russell and Van Hentenryck, Pascal},
+  journal = {Sustainable Energy, Grids and Networks},
+  volume  = {43},
+  pages   = {101878},
+  year    = {2025},
+  doi     = {10.1016/j.segan.2025.101878}
+}
+```
