@@ -50,15 +50,16 @@ passed as `opf_builder`. Linear and nonlinear clearing of one network therefore 
 
 ### Notation
 
-The diagram above and the examples use the following symbols.
+The diagram above and the examples use the following symbols; `cleared_volumes` and
+`clearing_prices` are fields of the named tuple returned by `calculate_profit(market)`.
 
 | Symbol | In the code | Meaning |
 |:--|:--|:--|
-| ``\mathcal S`` | `market.strategic_generators` | the strategic generators |
+| ``\mathcal S`` | `strategic_generators` | the strategic generators |
 | ``u_i`` | `new_bids[i]` | offered quantity of generator ``i`` (its `pmax`) |
-| ``q_i^\star(u)`` | `calculate_profit(market).cleared_volumes[i]` | cleared output of generator ``i`` |
-| ``\pi_i^\star(u)`` | `calculate_profit(market).clearing_prices[i]` | price at the bus of generator ``i`` |
-| ``J(u)`` | `profit_for_bid!(market, u)` | total profit of the offer ``u`` |
+| ``q_i^\star(u)`` | `cleared_volumes[i]` | cleared output of generator ``i`` |
+| ``\pi_i^\star(u)`` | `clearing_prices[i]` | price at generator ``i``'s bus |
+| ``J(u)`` | `profit_for_bid!` | total profit of the offer ``u`` |
 
 so that
 
