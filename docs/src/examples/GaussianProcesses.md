@@ -72,7 +72,7 @@ market = build_market(
     PowerModelsMarket,
     network_data,
     generator_indexes,
-    optimizer_with_attributes(HiGHS.Optimizer, "LogLevel" => 0),
+    optimizer_with_attributes(HiGHS.Optimizer, "output_flag" => false),
 )
 
 # Relative distribution of offers are sometimes predefined and cannot be changed at bidding time.

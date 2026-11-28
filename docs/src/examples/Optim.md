@@ -61,7 +61,7 @@ market = build_market(
     PowerModelsMarket,
     network_data,
     generator_indexes,
-    optimizer_with_attributes(HiGHS.Optimizer, "LogLevel" => 0),
+    optimizer_with_attributes(HiGHS.Optimizer, "output_flag" => false),
 )
 
 # Relative distribution of offers are sometimes predefined and cannot be changed at bidding time.
@@ -141,6 +141,7 @@ scatter!(plt_comp, [best_solution], [best_profit],
 
 # Profit and gradient
 using LinearAlgebra
+using Optim.NLSolversBase: only_fg! # objective + gradient in one call
 
 function fg!(F,G,total_volume)
     y, Δ = profit_and_gradient_for_bid!(market, offer_weights .* total_volume[1])
@@ -157,7 +158,7 @@ maxiter = 10
 global fcalls = 0
 
 inner_optimizer = LBFGS()
-results = Optim.optimize(Optim.only_fg!(fg!), lower, upper, initial_x, Fminbox(inner_optimizer), Optim.Options(f_calls_limit=maxiter, callback = advanced_fcall_control, store_trace=true))
+results = Optim.optimize(only_fg!(fg!), lower, upper, initial_x, Fminbox(inner_optimizer), Optim.Options(f_calls_limit=maxiter, callback = advanced_fcall_control, store_trace=true))
 
 best_solution = results.minimizer
 best_profit = -results.minimum

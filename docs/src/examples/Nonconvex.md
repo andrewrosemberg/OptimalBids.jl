@@ -70,7 +70,7 @@ market = build_market(
     PowerModelsMarket,
     network_data,
     generator_indexes,
-    optimizer_with_attributes(HiGHS.Optimizer, "LogLevel" => 0),
+    optimizer_with_attributes(HiGHS.Optimizer, "output_flag" => false),
 )
 
 # Relative distribution of offers are sometimes predefined and cannot be changed at bidding time.
@@ -342,8 +342,10 @@ scatter!(plt_comp, [best_solution] * 100 / max_load, [best_profit],
 
 plt_surrogate = deepcopy(plt_range);
 
-up_surrugate = -getproperty.(r_bayes.surrogates[1].(range_mul_factor), :lo)
-lb_surrugate = -getproperty.(r_bayes.surrogates[1].(range_mul_factor), :hi)
+# The surrogate returns intervals; read their bounds with `inf`/`sup`.
+using NonconvexBayesian.IntervalArithmetic: inf, sup
+up_surrugate = -inf.(r_bayes.surrogates[1].(range_mul_factor))
+lb_surrugate = -sup.(r_bayes.surrogates[1].(range_mul_factor))
 std_surrugate = (up_surrugate .- lb_surrugate) / 2
 med_surrugate = lb_surrugate + std_surrugate
 
@@ -418,7 +420,7 @@ plot(storage_profit_function.visited_times[1:storage_profit_function.fcalls],
 )
 ```
 
-### NonconvexMultistart - GPSampler (0-Order)
+### NonconvexMultistart - CLHSampler (0-Order)
 
 ```@example Nonconvex
 
@@ -436,7 +438,7 @@ addvar!(model, [min_total_volume], [max_total_volume])
 method = :Hyperopt
 alg = HyperoptAlg(IpoptAlg())
 options = HyperoptOptions(
-    sub_options = IpoptOptions(max_iter = maxiter), sampler = GPSampler(),
+    sub_options = IpoptOptions(max_iter = maxiter), sampler = CLHSampler(),
     iters = 2,
     keep_all=true
 )
